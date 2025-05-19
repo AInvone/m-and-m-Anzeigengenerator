@@ -5,8 +5,8 @@ from pathlib import Path
 import yaml
 import re
 
-import utils
-from utils import classify_room_priority, extract_number
+import code.utils as utils
+from code.utils import classify_room_priority, extract_number
 
 # Initialisiere Streamlit immer ZUERST
 st.set_page_config(
