@@ -1,69 +1,62 @@
 import streamlit as st
-import os 
-from datetime import datetime
-from pathlib import Path
+import os
 import re
+from datetime import datetime
+from utils import classify_room_priority, extract_number, create_prompt, generate_real_estate_ad_deeps, save_to_docx_with_images
 
-import utils as utils
-from utils import classify_room_priority, extract_number
-
-# Initialisiere Streamlit immer ZUERST
+# Streamlit page settings
 st.set_page_config(
     page_title="Immobilien-Anzeigengenerator",
     page_icon="🏠",
     layout="wide"
 )
 
+# Sidebar form for user input
 def set_sidebar():
     with st.sidebar:
         st.header("Eingaben")
-        
-        AUSSTATTUNG_OPTIONS = ["Garage/Stellplatz", "Garten", "Balkon", "Terasse", "Einbauküche", "Personenaufzug", "Keller", "Gäste-WC", "Smart Home", "Barrierefrei", "Neubau"]
+
+        AUSSTATTUNG_OPTIONS = [
+            "Garage/Stellplatz", "Garten", "Balkon", "Terasse", "Einbauküche",
+            "Personenaufzug", "Keller", "Gäste-WC", "Smart Home", "Barrierefrei", "Neubau"
+        ]
+
         usr_input = {
-            # Pflichtfelder
-            "action": st.selectbox("Aktion*", ["Kauf", "Miete"], index=0),
+            "action": st.selectbox("Aktion*", ["Kauf", "Miete"]),
             "immotype": st.selectbox("Immobilientyp*", ["Haus", "Wohnung"]),
             "location": st.text_input("Ort*", "Berlin"),
             "year_built": st.number_input("Baujahr*", min_value=1700, max_value=2025),
             "living_area": st.text_input("Wohnfläche (m²)", "150"),
             "price": st.number_input("Preis (€)*", min_value=0, value=500000),
-            "heating": st.selectbox("Heizungsart", ["Zentralheizung", "Etagenheizung"], index=0),
-            "internet_speed": st.selectbox("Internetgeschwindigkeit", ["min. 100 MBit/s", "min. 250 MBit/s", "min. 1000 MBit/s - Glasfaser"], index=0),
-            "energy_efficiency_class": st.selectbox("Energieeffizienzklasse", ["A+", "A", "B", "C", "D", "E", "F", "G", "H"], index=0),
-            # Optionale Felder
+            "heating": st.selectbox("Heizungsart", ["Zentralheizung", "Etagenheizung"]),
+            "internet_speed": st.selectbox("Internetgeschwindigkeit", ["min. 100 MBit/s", "min. 250 MBit/s", "min. 1000 MBit/s - Glasfaser"]),
+            "energy_efficiency_class": st.selectbox("Energieeffizienzklasse", ["A+", "A", "B", "C", "D", "E", "F", "G", "H"]),
             "rooms": st.number_input("Zimmer", min_value=1, value=10),
             "lot_size": st.text_input("Grundstücksgröße (m²)", "250"),
-            "house_type": st.selectbox("Haustyp", ["Einfamilienhaus", "Doppelhaus", "Reihenhaus"], index=0),
+            "house_type": st.selectbox("Haustyp", ["Einfamilienhaus", "Doppelhaus", "Reihenhaus"]),
             "features": ", ".join(
-                st.multiselect(
-                    label="Ausstattung/Merkmale (Mehrfachauswahl)", 
-                    options=AUSSTATTUNG_OPTIONS, 
-                    help="Wählen Sie alle zutreffenden Ausstattungsmerkmale aus")
-                    )
+                st.multiselect("Ausstattung/Merkmale", options=AUSSTATTUNG_OPTIONS)
+            )
         }
     return usr_input
 
-
-
-def main():
-
-    # Initialize session_state keys
-    if "docx_config" not in st.session_state:
-        st.session_state["docx_config"] = {}
-
+# Initialize session_state defaults
+def initialize_session_state():
     if "generated_text" not in st.session_state:
         st.session_state["generated_text"] = ""
-        
-        
+    if "docx_config" not in st.session_state:
+        st.session_state["docx_config"] = {}
+    if "docx_path" not in st.session_state:
+        st.session_state["docx_path"] = ""
+
+# Main application logic
+def main():
+    initialize_session_state()
     st.title("🏠 Immobilienanzeigen-Generator")
-    
-    # Sidebar für Eingaben
     usr_input = set_sidebar()
 
-    # Hauptbereich
     if st.button("Anzeige generieren", type="primary"):
         try:
-            # Parameter sammeln
             params = {
                 "action": usr_input['action'],
                 "immotype": usr_input['immotype'],
@@ -80,19 +73,13 @@ def main():
                 "features": usr_input['features']
             }
 
-            config_file_name = "config.yaml"
-            cur_script_folder = os.path.dirname(os.path.abspath(__file__))
-            # config_file_path = os.path.join(cur_script_folder, '../configs/', config_file_name)
-
-
-            config_file_path = os.path.join("config.yaml")
+            # Load paths + secrets
             input_logo_path = os.path.join("data", "logo-company.jpg")
             input_main_image_path = os.path.join("data", "pics", "foto-haus-main.jpg")
             input_detail_image_folder = os.path.join("data", "pics", "detailansicht")
+            output_dir = "output"
 
-            # with open(config_file_path, "r", encoding="utf-8") as f:
-            #     args = yaml.safe_load(f)
-
+            # API config
             args = {
                 "deepseek": {
                     "api_key": st.secrets["deepseek_api_key"],
@@ -100,82 +87,55 @@ def main():
                     "model": st.secrets["deepseek_model"]
                 }
             }
-            # print("CONFIG-all: ", args)
-            # print("CONFIG deepseek: ", args['deepseek'])
-            # print("CONFIG openai: ", args['openai'])
-            # print("CONFIG output: ", args['output'])
 
-            # input_logo_path = args['input']['logo_path']
-            # input_main_image_path = args['input']['main_image_path']
-            # input_detail_image_folder = args['input']['detail_image_folder']
-
-            # print("CONFIG input logo: ", input_logo_path)
-            # print("CONFIG input main_pic: ", input_main_image_path)
-            # print("CONFIG input detail_pics: ", input_detail_image_folder)
-
-            # Generiere Anzeige
+            # Prompt + generation
             with st.spinner("Generiere Anzeige..."):
-                prompt = utils.create_prompt(params)
-                ad_text = utils.generate_real_estate_ad_deeps(args['deepseek'], prompt)
+                prompt = create_prompt(params)
+                ad_text = generate_real_estate_ad_deeps(args['deepseek'], prompt)
 
-                # Store only text + paths for now, create docx or pdf upon request
-                st.session_state["generated_text"] = ad_text
-                st.session_state["docx_config"] = {
-                    "logo_path": input_logo_path,
-                    "main_image_path": input_main_image_path,
-                    "detail_image_folder": input_detail_image_folder,
-                    "output_dir": args["output"]["output_directory"],
-                    "title_prefix": "anzeige"
-                }
+            st.session_state["generated_text"] = ad_text
+            st.session_state["docx_config"] = {
+                "logo_path": input_logo_path,
+                "main_image_path": input_main_image_path,
+                "detail_image_folder": input_detail_image_folder,
+                "output_dir": output_dir,
+                "title_prefix": "anzeige"
+            }
 
-        
         except Exception as e:
-            st.error(f"Fehler: {str(e)}")         
-            
-    if "generated_text" in st.session_state:
+            st.error(f"Fehler bei der Generierung: {str(e)}")
+
+    if st.session_state["generated_text"]:
         try:
-            # Ergebnisse anzeigen
-            st.subheader("Vorschau")
+            st.subheader("📄 Vorschau")
 
-            input_logo_path = st.session_state["docx_config"]['logo_path']
+            # 1. Logo
+            logo_path = st.session_state["docx_config"].get("logo_path", "")
+            if os.path.exists(logo_path):
+                st.columns([4, 1])[1].image(logo_path, width=150)
+                st.markdown("<br>", unsafe_allow_html=True)
 
-            # 1. Logo in top-right
-            logo_cols = st.columns([4, 1])
-            with logo_cols[1]:
-                st.image(input_logo_path, width=150)
-            
-            # Add some space between logo and content. 
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            # 2. Extract and show title (first line from ad_text) 
+            # 2. Title
             title_line = st.session_state["generated_text"].strip().split("\n")[0]
-
-            # Use regex to remove a pair of asterisks at the start and end
-            match = re.match(r"^\*\*(.+?)\*\*$", title_line.strip())
-            if match:
-                title_line = match.group(1)
-
+            title_line = re.sub(r"^\*\*(.+?)\*\*$", r"\1", title_line.strip())
             st.markdown(f"<h2 style='text-align: center'>{title_line}</h2>", unsafe_allow_html=True)
 
+            # 3. Main image
+            main_img = st.session_state["docx_config"].get("main_image_path", "")
+            if os.path.exists(main_img):
+                st.columns([1, 2, 1])[1].image(main_img, caption="Außenansicht der Immobilie", use_container_width=True)
 
-            # 3. Main image, centered
-            input_main_image_path = st.session_state["docx_config"]['main_image_path']
-            cols = st.columns([1, 2, 1])
-            with cols[1]:
-                st.image(input_main_image_path, caption="Außenansicht der Immobilie", use_container_width=True)
-                
-            # 4. Rest of exposé text
-            rest_of_text = "\n".join(st.session_state["generated_text"].strip().split("\n")[1:]).strip()
-            st.markdown(rest_of_text)
+            # 4. Rest of exposé
+            text_body = "\n".join(st.session_state["generated_text"].strip().split("\n")[1:]).strip()
+            st.markdown(text_body)
 
-            # Innenansichten
-            input_detail_image_folder = st.session_state["docx_config"]['detail_image_folder']
-
-            if os.path.isdir(input_detail_image_folder):
+            # 5. Gallery
+            detail_folder = st.session_state["docx_config"].get("detail_image_folder", "")
+            if os.path.isdir(detail_folder):
                 st.subheader("🖼️ Innenansichten")
                 image_files = [
-                    os.path.join(input_detail_image_folder, f)
-                    for f in os.listdir(input_detail_image_folder)
+                    os.path.join(detail_folder, f)
+                    for f in os.listdir(detail_folder)
                     if f.lower().endswith((".png", ".jpg", ".jpeg"))
                 ]
                 sorted_images = sorted(
@@ -190,33 +150,31 @@ def main():
                     cols = st.columns(2)
                     for j in range(2):
                         if i + j < len(sorted_images):
-                            image_path = sorted_images[i + j]
-                            caption = os.path.splitext(os.path.basename(image_path))[0].replace("-", " ").capitalize()
-                            cols[j].image(image_path, caption=caption, use_container_width=True)
+                            img_path = sorted_images[i + j]
+                            caption = os.path.splitext(os.path.basename(img_path))[0].replace("-", " ").capitalize()
+                            cols[j].image(img_path, caption=caption, use_container_width=True)
 
-            # Download-approach 2
-
+            # 6. Generate and download docx
             if st.button("📥 Word-Datei erstellen"):
-                # Save the docx now
-                docx_path = utils.save_to_docx_with_images(
+                docx_path = save_to_docx_with_images(
                     text=st.session_state["generated_text"],
                     **st.session_state["docx_config"]
                 )
                 st.session_state["docx_path"] = docx_path
 
-                # Download button
                 with open(docx_path, "rb") as f:
                     st.download_button(
                         label="⬇️ Jetzt Word-Datei herunterladen",
                         data=f,
                         file_name=os.path.basename(docx_path),
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    )
+                st.success(f"✅ Datei gespeichert unter:\n`{os.path.abspath(docx_path)}`")
 
-                    st.success(f"✅ Word-Datei erfolgreich erstellt.\n\n💾 Lokaler Pfad:\n`{os.path.abspath(docx_path)}`") 
         except Exception as e:
-            st.error(f"Fehler: {str(e)}")
+            st.error(f"Fehler bei der Vorschau: {str(e)}")
 
-
-# WICHTIG: Main-Aufruf nicht vergessen!
+# Entry point
 if __name__ == "__main__":
-    main() 
+    main()
+    
