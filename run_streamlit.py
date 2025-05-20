@@ -61,8 +61,8 @@ def main():
             st.session_state["generated_text"] = response
 
             st.session_state["docx_config"] = {
-                "logo_path": "data/logo-company.jpg",
-                "main_image_path": "data/pics/foto-haus-main.jpg",
+                "logo_path": "data/logo-company.png",
+                "main_image_path": "data/pics/foto-haus-main.png",
                 "detail_image_folder": "data/pics/detailansicht",
                 "output_dir": "output",
                 "title_prefix": "anzeige"
@@ -129,4 +129,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
