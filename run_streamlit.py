@@ -46,6 +46,15 @@ def set_sidebar():
 
 
 def main():
+
+    # Initialize session_state keys
+    if "docx_config" not in st.session_state:
+        st.session_state["docx_config"] = {}
+
+    if "generated_text" not in st.session_state:
+        st.session_state["generated_text"] = ""
+        
+        
     st.title("🏠 Immobilienanzeigen-Generator")
     
     # Sidebar für Eingaben
