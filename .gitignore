@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+# Ignore Streamlit config and backup script
+.streamlit/
+run_streamlit_backup.py
+
+
 # Distribution / packaging
 .Python
 build/
