@@ -82,9 +82,9 @@ def main():
             # API config
             args = {
                 "deepseek": {
-                    "api_key": st.secrets["deepseek_api_key"],
-                    "base_url": st.secrets["deepseek_base_url"],
-                    "model": st.secrets["deepseek_model"]
+                    "api_key": st.secrets["deepseek"]["deepseek_api_key"],
+                    "base_url": st.secrets["deepseek"]["deepseek_base_url"],
+                    "model": st.secrets["deepseek"]["deepseek_model"]
                 }
             }
 
@@ -177,4 +177,3 @@ def main():
 # Entry point
 if __name__ == "__main__":
     main()
-    
