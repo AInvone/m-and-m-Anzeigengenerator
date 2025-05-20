@@ -201,7 +201,7 @@ def main():
                         label="⬇️ Jetzt Word-Datei herunterladen",
                         data=f,
                         file_name=os.path.basename(docx_path),
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
                     st.success(f"✅ Word-Datei erfolgreich erstellt.\n\n💾 Lokaler Pfad:\n`{os.path.abspath(docx_path)}`") 
         except Exception as e:
