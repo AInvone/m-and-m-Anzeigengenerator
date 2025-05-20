@@ -1,0 +1,8 @@
+output:
+  output_directory: Documents/gitHub/ainvone/m-und-m/output  # Documents/gitHub/ainvone/m-und-m/output
+
+
+input: 
+  logo_path: data/logo-managing-transformation.png
+  main_image_path: data/pics/foto-haus-1.png
+  detail_image_folder: data/pics/detailansicht

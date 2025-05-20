@@ -2,11 +2,10 @@ import streamlit as st
 import os 
 from datetime import datetime
 from pathlib import Path
-import yaml
 import re
 
-import code.utils as utils
-from code.utils import classify_room_priority, extract_number
+import utils as utils
+from utils import classify_room_priority, extract_number
 
 # Initialisiere Streamlit immer ZUERST
 st.set_page_config(
@@ -74,20 +73,36 @@ def main():
 
             config_file_name = "config.yaml"
             cur_script_folder = os.path.dirname(os.path.abspath(__file__))
-            config_file_path = os.path.join(cur_script_folder, '../configs/', config_file_name)
+            # config_file_path = os.path.join(cur_script_folder, '../configs/', config_file_name)
 
-            with open(config_file_path, "r", encoding="utf-8") as f:
-                args = yaml.safe_load(f)
-            print("CONFIG-all: ", args)
-            print("CONFIG deepseek: ", args['deepseek'])
-            print("CONFIG openai: ", args['openai'])
-            print("CONFIG output: ", args['output'])
-            input_logo_path = args['input']['logo_path']
-            input_main_image_path = args['input']['main_image_path']
-            input_detail_image_folder = args['input']['detail_image_folder']
-            print("CONFIG input logo: ", input_logo_path)
-            print("CONFIG input main_pic: ", input_main_image_path)
-            print("CONFIG input detail_pics: ", input_detail_image_folder)
+
+            config_file_path = os.path.join("config.yaml")
+            input_logo_path = os.path.join("data", "logo-company.jpg")
+            input_main_image_path = os.path.join("data", "pics", "foto-haus-main.jpg")
+            input_detail_image_folder = os.path.join("data", "pics", "detailansicht")
+
+            # with open(config_file_path, "r", encoding="utf-8") as f:
+            #     args = yaml.safe_load(f)
+
+            args = {
+                "deepseek": {
+                    "api_key": st.secrets["deepseek_api_key"],
+                    "base_url": st.secrets["deepseek_base_url"],
+                    "model": st.secrets["deepseek_model"]
+                }
+            }
+            # print("CONFIG-all: ", args)
+            # print("CONFIG deepseek: ", args['deepseek'])
+            # print("CONFIG openai: ", args['openai'])
+            # print("CONFIG output: ", args['output'])
+
+            # input_logo_path = args['input']['logo_path']
+            # input_main_image_path = args['input']['main_image_path']
+            # input_detail_image_folder = args['input']['detail_image_folder']
+
+            # print("CONFIG input logo: ", input_logo_path)
+            # print("CONFIG input main_pic: ", input_main_image_path)
+            # print("CONFIG input detail_pics: ", input_detail_image_folder)
 
             # Generiere Anzeige
             with st.spinner("Generiere Anzeige..."):
@@ -179,8 +194,16 @@ def main():
                     **st.session_state["docx_config"]
                 )
                 st.session_state["docx_path"] = docx_path
-                st.success(f"Word-Datei gespeichert unter:\n`{os.path.abspath(docx_path)}`")
 
+                # Download button
+                with open(docx_path, "rb") as f:
+                    st.download_button(
+                        label="⬇️ Jetzt Word-Datei herunterladen",
+                        data=f,
+                        file_name=os.path.basename(docx_path),
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+                    st.success(f"✅ Word-Datei erfolgreich erstellt.\n\n💾 Lokaler Pfad:\n`{os.path.abspath(docx_path)}`") 
         except Exception as e:
             st.error(f"Fehler: {str(e)}")
 
