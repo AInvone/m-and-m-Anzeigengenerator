@@ -163,22 +163,42 @@ def clean_markdown(text):
 def add_logo_top_right(doc, logo_path):
     if logo_path and os.path.exists(logo_path):
         section = doc.sections[0]
+        section.top_margin = Inches(1.2)  # Platz schaffen für Logo im Header
+
         header = section.header
-        paragraph = header.paragraphs[0]
-        # Clear any existing content
-        paragraph.clear()
-        # Align the paragraph right
+
+        # Sicherstellen, dass ein Absatz existiert
+        if not header.paragraphs:
+            paragraph = header.add_paragraph()
+        else:
+            paragraph = header.paragraphs[0]
+
         paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
-        # Add logo aligned right
         run = paragraph.add_run()
         run.add_picture(logo_path, width=Inches(2))
-
-        # Add spacing to avoid overlap with body text
-        # Increase top margin to make space for the logo in the header
-        section.top_margin = Inches(1.2)  # default is ~1.0", increase to create buffer
-
     else:
-        print("Logo file not found:", logo_path)
+        print(f"⚠️ Logo-Datei nicht gefunden: {logo_path}")
+
+
+# def add_logo_top_right_old(doc, logo_path):
+#     if logo_path and os.path.exists(logo_path):
+#         section = doc.sections[0]
+#         header = section.header
+#         paragraph = header.paragraphs[0]
+#         # Clear any existing content
+#         paragraph.clear()
+#         # Align the paragraph right
+#         paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
+#         # Add logo aligned right
+#         run = paragraph.add_run()
+#         run.add_picture(logo_path, width=Inches(2))
+
+#         # Add spacing to avoid overlap with body text
+#         # Increase top margin to make space for the logo in the header
+#         section.top_margin = Inches(1.2)  # default is ~1.0", increase to create buffer
+
+#     else:
+#         print("Logo file not found:", logo_path)
 
 
 def add_main_image(doc, image_path, caption=""):
