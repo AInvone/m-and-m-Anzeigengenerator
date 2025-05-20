@@ -68,18 +68,28 @@ def _process_markdown_line(line):
 
 def clean_markdown(text):
     lines = []
+    first_line = True
+
     for line in text.split("\n"):
         line = line.strip()
         if not line:
             continue
 
-        # Markdown table row
+        # HEADING 1: erste fette Zeile als Haupttitel
+        if first_line and line.startswith("**") and line.endswith("**"):
+            clean_title = line.strip("*").strip()
+            lines.append(("heading1", [("text", clean_title)]))
+            first_line = False
+            continue
+        first_line = False
+
+        # Markdown-Tabelle
         if "|" in line and re.match(r"^\|.*\|$", line):
             cells = [c.strip() for c in line.strip().strip("|").split("|")]
             lines.append(("table_row", cells))
             continue
 
-        # Headings
+        # Unterüberschriften
         if line.startswith("###"):
             lines.append(("heading2", line.replace("###", "").strip()))
             continue
@@ -87,13 +97,13 @@ def clean_markdown(text):
             lines.append(("heading3", line.strip("*").strip()))
             continue
 
-        # Bullet points – skip bad lines like "• --"
+        # Bullet (aber keine kaputten wie • --)
         bullet_match = re.match(r'^\s*[-•✔🔹]\s+(.+)', line)
-        if bullet_match:
+        if bullet_match and bullet_match.group(1).strip() != "--":
             lines.append(("bullet", (1, _process_markdown_line(bullet_match.group(1)))))
             continue
 
-        # Paragraph
+        # Fließtext
         processed = _process_markdown_line(line)
         if any(t[0] == 'bold' for t in processed):
             lines.append(("bold_text", processed))
