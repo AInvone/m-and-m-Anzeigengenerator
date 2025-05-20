@@ -10,11 +10,11 @@ from openai import OpenAI
 
 def generate_real_estate_ad_deeps(args, prompt):
     client = OpenAI(
-        api_key=args['api_key'],
-        base_url=args['base_url'],
+        api_key=args['deepseek_api_key'],
+        base_url=args['deepseek_base_url'],
     )
     response = client.chat.completions.create(
-        model=args['model'],
+        model=args['deepseek_model'],
         messages=[{"role": "user", "content": prompt}]
     )
     return response.choices[0].message.content
