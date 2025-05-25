@@ -40,9 +40,9 @@ Bitte verwende eine übersichtliche Struktur:
 - Eine ansprechende Überschrift
 - Einen Abschnitt "Key Facts"
 - Eine Merkmals-Tabelle
-- Einen ausführlichen Fließtext mit Vorteilen (USPs)
+- Einen ausführlichen, umfangreichen und ansprechenden Fließtext mit Hervorhebung aller Vorteilen (USPs)
 - Zielgruppe: Käufer auf dem deutschen Immobilienmarkt
-- Stil: inspirierend, klar, realistisch
+- Stil: inspirierend, klar, realistisch, ansprechend
 """
 
 # ---------- Markdown Cleaning ----------
@@ -201,10 +201,6 @@ def classify_room_priority(name):
 def extract_number(fname):
     match = re.search(r'(\d+)(?=\.\w+$)', fname)
     return int(match.group(1)) if match else 999
-
-# TODO 
-def rescale_images():
-    return 0
 
 def add_image_gallery_from_folder(doc, folder, title="Innenansichten", per_row=2, width=2.5):
     if not os.path.isdir(folder):
