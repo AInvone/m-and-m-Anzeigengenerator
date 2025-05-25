@@ -180,29 +180,55 @@ def add_image_gallery_from_folder(doc, folder, title="Innenansichten", per_row=2
 
 # ---------- Image Rescale ----------
 
-def rescale_img(input_path, output_folder="data/rescaled_details", max_width=1200, quality=90): # max_size_kb=500, 
-    if not os.path.isfile(input_path):
-        return input_path
+def rescale_img(input_path_or_folder, output_folder="data/rescaled_details", max_width=1000, quality=85):
+    """
+    Rescales a single image or all images in a folder to max width.
+    Saves them as optimized JPEGs in `output_folder` and returns paths.
 
-    img = Image.open(input_path)
-    img_format = img.format
+    Args:
+        input_path_or_folder (str): Path to image file or directory.
+        output_folder (str): Where to save rescaled images.
+        max_width (int): Max pixel width.
+        quality (int): JPEG quality (default 85).
 
-    # Resize if too wide
-    if img.width > max_width:
-        ratio = max_width / img.width
-        new_size = (max_width, int(img.height * ratio))
-        img = img.resize(new_size, Image.LANCZOS)
+    Returns:
+        str | dict: Rescaled image path (if single image) or dict of {original_path: resized_path}
+    """
+    os.makedirs(output_folder, exist_ok=True)
 
-    quality = 85
-    output_path = output_path or input_path
-    img.save(output_path, optimize=True, quality=quality)
+    def _rescale_and_save(img_path):
+        try:
+            with Image.open(img_path) as img:
+                img_format = img.format or "JPEG"
+                width, height = img.size
 
-    while os.path.getsize(output_path) > max_size_kb * 1024 and quality > 40:
-        quality -= 5
-        img.save(output_path, optimize=True, quality=quality)
+                if width > max_width:
+                    new_height = int(max_width * height / width)
+                    img = img.resize((max_width, new_height), Image.LANCZOS)
 
-    return output_path
+                base_name = os.path.splitext(os.path.basename(img_path))[0] + ".jpg"
+                out_path = os.path.join(output_folder, base_name)
+                img.convert("RGB").save(out_path, format="JPEG", quality=quality, optimize=True)
+                return out_path
+        except Exception as e:
+            print(f"⚠️ Fehler beim Skalieren von {img_path}: {e}")
+            return img_path  # fallback
 
+    if os.path.isfile(input_path_or_folder):
+        return _rescale_and_save(input_path_or_folder)
+    
+    elif os.path.isdir(input_path_or_folder):
+        results = {}
+        for f in os.listdir(input_path_or_folder):
+            full_path = os.path.join(input_path_or_folder, f)
+            if f.lower().endswith((".png", ".jpg", ".jpeg")):
+                resized = _rescale_and_save(full_path)
+                results[full_path] = resized
+        return results
+
+    else:
+        raise ValueError(f"Pfad nicht gefunden: {input_path_or_folder}")
+    
 # ---------- Save Word File ----------
 
 def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
