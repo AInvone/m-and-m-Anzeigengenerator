@@ -1,12 +1,11 @@
-
 import os
 import re
 from datetime import datetime
+from PIL import Image
 from docx import Document
 from docx.shared import Inches
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from openai import OpenAI
-from PIL import Image
 
 # ---------- LLM Functions ----------
 
@@ -42,11 +41,11 @@ Bitte verwende eine übersichtliche Struktur:
 - Einen Abschnitt "Key Facts" mit den wichtigsten Eckdaten
 - Eine Merkmals-Tabelle (in Markdown-Tabelle mit zwei Spalten: Merkmal | Wert)
 - Einen ausführlichen, umfangreichen und ansprechenden Haupttext in Fließtext mit Hervorhebung aller Vorteile (USPs)
-- Die Fließtext-Absätze dürfen länger und ausgeschweifter sein, gerne rethorisch ausgeschmückt, oder auch mit einem oder zwei inhaltlichen "Hooks", bevor es zu "Ihre Vorteile auf einen Blick:" kommt
+- Die Fließtext-Absätze darf ausgeschweifter sein, bevor es zu "Ihre Vorteile auf einen Blick:" kommt
 - Zielgruppe: Käufer auf dem deutschen Immobilienmarkt
 - Stil: inspirierend, klar, realistisch, ansprechend
 
-Gib nur den Anzeigentext zurück und kommentiere nicht die obigen Anweisungen.
+Gib bitte NUR den Anzeigentext zurück und kommentiere NICHT die obigen Anweisungen.
 """
 
 def trim_trailing_notes(text: str) -> str:
@@ -57,7 +56,6 @@ def trim_trailing_notes(text: str) -> str:
     ):
         lines.pop()
     return "\n".join(lines)
-
 
 # ---------- Markdown Cleaning ----------
 
@@ -83,32 +81,43 @@ def _process_markdown_line(line):
 
 def clean_markdown(text):
     lines = []
+    first_line = True
+
     for line in text.split("\n"):
         line = line.strip()
         if not line:
             continue
 
-        # Markdown table row
+        # HEADING 1: erste fette Zeile als Haupttitel
+        if first_line and line.startswith("**") and line.endswith("**"):
+            clean_title = line.strip("*").strip()
+            lines.append(("heading1", [("text", clean_title)]))
+            first_line = False
+            continue
+        first_line = False
+
+        # Markdown-Tabelle
         if "|" in line and re.match(r"^\|.*\|$", line):
-            cells = [c.strip("* ").strip() for c in line.strip().strip("|").split("|")]
-            lines.append(("table_row", [("bold" if "**" in c else "text", c.strip("*")) for c in cells]))
+            cells = [re.sub(r"\*+", "", c.strip()) for c in line.strip().strip("|").split("|")]
+            lines.append(("table_row", cells))
             continue
 
-        # Headings
+        # Unterüberschriften
         if line.startswith("###"):
             lines.append(("heading2", line.replace("###", "").strip()))
             continue
         elif line.startswith("**") and line.endswith("**"):
-            lines.append(("heading3", line.strip("*").strip()))
+            line_clean = re.sub(r"\*+", "", line).strip()
+            lines.append(("heading3", line_clean))
             continue
 
-        # Bullet points – skip bad lines like "• --"
+        # Bullet (aber keine kaputten wie • --)
         bullet_match = re.match(r'^\s*[-•✔🔹]\s+(.+)', line)
-        if bullet_match:
+        if bullet_match and bullet_match.group(1).strip() != "--":
             lines.append(("bullet", (1, _process_markdown_line(bullet_match.group(1)))))
             continue
 
-        # Paragraph
+        # Fließtext
         processed = _process_markdown_line(line)
         if any(t[0] == 'bold' for t in processed):
             lines.append(("bold_text", processed))
@@ -117,7 +126,7 @@ def clean_markdown(text):
 
     return lines
 
-# ---------- Word Helper ----------
+# ---------- Image Helper ----------
 
 def add_logo_top_right(doc, logo_path):
     if logo_path and os.path.exists(logo_path):
@@ -127,58 +136,6 @@ def add_logo_top_right(doc, logo_path):
         p = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
         p.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
         p.add_run().add_picture(logo_path, width=Inches(2))
-
-def add_main_image(doc, path, caption=""):
-    if path and os.path.exists(path):
-        p = doc.add_paragraph()
-        p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-        p.add_run().add_picture(path, width=Inches(5.5))
-        if caption:
-            caption_paragraph = doc.add_paragraph(caption, style="Caption")
-            caption_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-
-def clean_filename_for_caption(fname):
-    name = os.path.splitext(os.path.basename(fname))[0]
-    return name.replace("-", " ").replace("_", " ").title()
-
-def classify_room_priority(name):
-    name = name.lower()
-    MAIN = ["wohnzimmer", "flur", "schlafzimmer", "kinderzimmer"]
-    FUNC = ["küche", "bad", "balkon", "garage", "wc"]
-    for i, r in enumerate(MAIN):
-        if r in name:
-            return (0, i)
-    for i, r in enumerate(FUNC):
-        if r in name:
-            return (1, i)
-    return (2, 99)
-
-def extract_number(fname):
-    match = re.search(r'(\d+)(?=\.\w+$)', fname)
-    return int(match.group(1)) if match else 999
-
-def add_image_gallery_from_folder(doc, folder, title="Innenansichten", per_row=2, width=2.5):
-    if not os.path.isdir(folder):
-        return
-    images = [os.path.join(folder, f) for f in os.listdir(folder)
-              if f.lower().endswith((".png", ".jpg", ".jpeg"))]
-    images.sort(key=lambda p: (classify_room_priority(p), extract_number(p)))
-    if not images:
-        return
-
-    doc.add_heading(title, level=2)
-    for i in range(0, len(images), per_row):
-        table = doc.add_table(rows=1, cols=per_row)
-        row = table.rows[0].cells
-        for j in range(per_row):
-            if i + j < len(images):
-                img = images[i + j]
-                p = row[j].paragraphs[0]
-                p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-                p.add_run().add_picture(img, width=Inches(width))
-                row[j].add_paragraph(clean_filename_for_caption(img)).alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-
-# ---------- Image Rescale ----------
 
 def rescale_img(input_path_or_folder, output_folder="data/rescaled_details", max_width=1000, quality=85):
     """
@@ -229,6 +186,56 @@ def rescale_img(input_path_or_folder, output_folder="data/rescaled_details", max
     else:
         raise ValueError(f"Pfad nicht gefunden: {input_path_or_folder}")
     
+def add_main_image(doc, path, caption=""):
+    if path and os.path.exists(path):
+        p = doc.add_paragraph()
+        p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+        p.add_run().add_picture(path, width=Inches(5.5))
+        if caption:
+            caption_paragraph = doc.add_paragraph(caption, style="Caption")
+            caption_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+def clean_filename_for_caption(fname):
+    name = os.path.splitext(os.path.basename(fname))[0]
+    return name.replace("-", " ").replace("_", " ").title()
+
+def classify_room_priority(name):
+    name = name.lower()
+    MAIN = ["wohnzimmer", "flur", "schlafzimmer", "kinderzimmer"]
+    FUNC = ["küche", "bad", "balkon", "garage", "wc"]
+    for i, r in enumerate(MAIN):
+        if r in name:
+            return (0, i)
+    for i, r in enumerate(FUNC):
+        if r in name:
+            return (1, i)
+    return (2, 99)
+
+def extract_number(fname):
+    match = re.search(r'(\d+)(?=\.\w+$)', fname)
+    return int(match.group(1)) if match else 999
+
+def add_image_gallery_from_folder(doc, folder, title="Innenansichten", per_row=2, width=2.5):
+    if not os.path.isdir(folder):
+        return
+    images = [os.path.join(folder, f) for f in os.listdir(folder)
+              if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+    images.sort(key=lambda p: (classify_room_priority(p), extract_number(p)))
+    if not images:
+        return
+
+    doc.add_heading(title, level=2)
+    for i in range(0, len(images), per_row):
+        table = doc.add_table(rows=1, cols=per_row)
+        row = table.rows[0].cells
+        for j in range(per_row):
+            if i + j < len(images):
+                img = images[i + j]
+                p = row[j].paragraphs[0]
+                p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+                p.add_run().add_picture(img, width=Inches(width))
+                row[j].add_paragraph(clean_filename_for_caption(img)).alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
 # ---------- Save Word File ----------
 
 def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
@@ -254,18 +261,17 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
 
     add_main_image(doc, main_image_path, "Außenansicht der Immobilie")
 
-    bullet_stack = [0]
     table = None
+    bullet_stack = [0]
 
     for elem_type, content in cleaned[start_index:]:
         if elem_type == "table_row":
-            if table is None:
+            if 'table' not in locals() or table is None:
                 table = doc.add_table(rows=0, cols=len(content))
                 table.style = 'Table Grid'
             row = table.add_row().cells
-            for i, (ftype, val) in enumerate(content):
-                run = row[i].paragraphs[0].add_run(val)
-                run.bold = (ftype == "bold")
+            for i, val in enumerate(content):
+                row[i].text = val
             continue
         else:
             table = None
@@ -273,11 +279,13 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
         if elem_type == "heading2":
             doc.add_heading(content, level=2)
             bullet_stack = [0]
+
         elif elem_type == "bullet":
             p = doc.add_paragraph(style='List Bullet')
             for t, val in content[1]:
                 run = p.add_run(val)
                 run.bold = (t == 'bold')
+
         elif elem_type in ("bold_text", "paragraph"):
             p = doc.add_paragraph()
             for t, val in content:
