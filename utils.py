@@ -124,7 +124,7 @@ def add_logo_top_right(doc, logo_path):
         p.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
         p.add_run().add_picture(logo_path, width=Inches(2))
 
-def rescale_img(input_path_or_folder, output_folder="data/rescaled", max_width=900, quality=85):
+def rescale_img(input_path_or_folder, output_folder="data/rescaled", max_width=1000, quality=85):
     """
     Rescales a single image or all images in a folder to max width.
     Saves them as optimized JPEGs in `output_folder` and returns paths.

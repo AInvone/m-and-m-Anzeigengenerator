@@ -122,7 +122,9 @@ def main():
                     for j in range(2):
                         if i + j < len(imgs):
                             path = imgs[i + j]
-                            cols[j].image(path, caption=os.path.basename(path).replace("-", " ").title())
+                            filename = os.path.basename(path)
+                            caption_filename = os.path.splitext(filename)[0].replace("-", " ").replace("_", " ").title()
+                            cols[j].image(path, caption=caption_filename)
 
             if st.button("📥 Word-Datei erstellen"):
                 docx_path = save_to_docx_with_images(
