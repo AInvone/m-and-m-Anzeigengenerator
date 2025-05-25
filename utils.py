@@ -1,11 +1,12 @@
+
 import os
 import re
 from datetime import datetime
-from PIL import Image
 from docx import Document
 from docx.shared import Inches
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from openai import OpenAI
+from PIL import Image
 
 # ---------- LLM Functions ----------
 
@@ -57,6 +58,7 @@ def trim_trailing_notes(text: str) -> str:
         lines.pop()
     return "\n".join(lines)
 
+
 # ---------- Markdown Cleaning ----------
 
 def _process_markdown_line(line):
@@ -81,43 +83,32 @@ def _process_markdown_line(line):
 
 def clean_markdown(text):
     lines = []
-    first_line = True
-
     for line in text.split("\n"):
         line = line.strip()
         if not line:
             continue
 
-        # HEADING 1: erste fette Zeile als Haupttitel
-        if first_line and line.startswith("**") and line.endswith("**"):
-            clean_title = line.strip("*").strip()
-            lines.append(("heading1", [("text", clean_title)]))
-            first_line = False
-            continue
-        first_line = False
-
-        # Markdown-Tabelle
+        # Markdown table row
         if "|" in line and re.match(r"^\|.*\|$", line):
-            cells = [re.sub(r"\*+", "", c.strip()) for c in line.strip().strip("|").split("|")]
-            lines.append(("table_row", cells))
+            cells = [c.strip("* ").strip() for c in line.strip().strip("|").split("|")]
+            lines.append(("table_row", [("bold" if "**" in c else "text", c.strip("*")) for c in cells]))
             continue
 
-        # Unterüberschriften
+        # Headings
         if line.startswith("###"):
             lines.append(("heading2", line.replace("###", "").strip()))
             continue
         elif line.startswith("**") and line.endswith("**"):
-            line_clean = re.sub(r"\*+", "", line).strip()
-            lines.append(("heading3", line_clean))
+            lines.append(("heading3", line.strip("*").strip()))
             continue
 
-        # Bullet (aber keine kaputten wie • --)
+        # Bullet points – skip bad lines like "• --"
         bullet_match = re.match(r'^\s*[-•✔🔹]\s+(.+)', line)
-        if bullet_match and bullet_match.group(1).strip() != "--":
+        if bullet_match:
             lines.append(("bullet", (1, _process_markdown_line(bullet_match.group(1)))))
             continue
 
-        # Fließtext
+        # Paragraph
         processed = _process_markdown_line(line)
         if any(t[0] == 'bold' for t in processed):
             lines.append(("bold_text", processed))
@@ -126,7 +117,7 @@ def clean_markdown(text):
 
     return lines
 
-# ---------- Image Helper ----------
+# ---------- Word Helper ----------
 
 def add_logo_top_right(doc, logo_path):
     if logo_path and os.path.exists(logo_path):
@@ -137,55 +128,6 @@ def add_logo_top_right(doc, logo_path):
         p.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
         p.add_run().add_picture(logo_path, width=Inches(2))
 
-def rescale_img(input_path_or_folder, output_folder="data/rescaled_details", max_width=1000, quality=85):
-    """
-    Rescales a single image or all images in a folder to max width.
-    Saves them as optimized JPEGs in `output_folder` and returns paths.
-
-    Args:
-        input_path_or_folder (str): Path to image file or directory.
-        output_folder (str): Where to save rescaled images.
-        max_width (int): Max pixel width.
-        quality (int): JPEG quality (default 85).
-
-    Returns:
-        str | dict: Rescaled image path (if single image) or dict of {original_path: resized_path}
-    """
-    os.makedirs(output_folder, exist_ok=True)
-
-    def _rescale_and_save(img_path):
-        try:
-            with Image.open(img_path) as img:
-                img_format = img.format or "JPEG"
-                width, height = img.size
-
-                if width > max_width:
-                    new_height = int(max_width * height / width)
-                    img = img.resize((max_width, new_height), Image.LANCZOS)
-
-                base_name = os.path.splitext(os.path.basename(img_path))[0] + ".jpg"
-                out_path = os.path.join(output_folder, base_name)
-                img.convert("RGB").save(out_path, format="JPEG", quality=quality, optimize=True)
-                return out_path
-        except Exception as e:
-            print(f"⚠️ Fehler beim Skalieren von {img_path}: {e}")
-            return img_path  # fallback
-
-    if os.path.isfile(input_path_or_folder):
-        return _rescale_and_save(input_path_or_folder)
-    
-    elif os.path.isdir(input_path_or_folder):
-        results = {}
-        for f in os.listdir(input_path_or_folder):
-            full_path = os.path.join(input_path_or_folder, f)
-            if f.lower().endswith((".png", ".jpg", ".jpeg")):
-                resized = _rescale_and_save(full_path)
-                results[full_path] = resized
-        return results
-
-    else:
-        raise ValueError(f"Pfad nicht gefunden: {input_path_or_folder}")
-    
 def add_main_image(doc, path, caption=""):
     if path and os.path.exists(path):
         p = doc.add_paragraph()
@@ -236,6 +178,31 @@ def add_image_gallery_from_folder(doc, folder, title="Innenansichten", per_row=2
                 p.add_run().add_picture(img, width=Inches(width))
                 row[j].add_paragraph(clean_filename_for_caption(img)).alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
+# ---------- Image Rescale ----------
+
+def rescale_img(input_path, output_path=None, max_size_kb=500, max_width=1200):
+    if not os.path.isfile(input_path):
+        return input_path
+
+    img = Image.open(input_path)
+    img_format = img.format
+
+    # Resize if too wide
+    if img.width > max_width:
+        ratio = max_width / img.width
+        new_size = (max_width, int(img.height * ratio))
+        img = img.resize(new_size, Image.LANCZOS)
+
+    quality = 85
+    output_path = output_path or input_path
+    img.save(output_path, optimize=True, quality=quality)
+
+    while os.path.getsize(output_path) > max_size_kb * 1024 and quality > 40:
+        quality -= 5
+        img.save(output_path, optimize=True, quality=quality)
+
+    return output_path
+
 # ---------- Save Word File ----------
 
 def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
@@ -261,17 +228,18 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
 
     add_main_image(doc, main_image_path, "Außenansicht der Immobilie")
 
-    table = None
     bullet_stack = [0]
+    table = None
 
     for elem_type, content in cleaned[start_index:]:
         if elem_type == "table_row":
-            if 'table' not in locals() or table is None:
+            if table is None:
                 table = doc.add_table(rows=0, cols=len(content))
                 table.style = 'Table Grid'
             row = table.add_row().cells
-            for i, val in enumerate(content):
-                row[i].text = val
+            for i, (ftype, val) in enumerate(content):
+                run = row[i].paragraphs[0].add_run(val)
+                run.bold = (ftype == "bold")
             continue
         else:
             table = None
@@ -279,13 +247,11 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
         if elem_type == "heading2":
             doc.add_heading(content, level=2)
             bullet_stack = [0]
-
         elif elem_type == "bullet":
             p = doc.add_paragraph(style='List Bullet')
             for t, val in content[1]:
                 run = p.add_run(val)
                 run.bold = (t == 'bold')
-
         elif elem_type in ("bold_text", "paragraph"):
             p = doc.add_paragraph()
             for t, val in content:
