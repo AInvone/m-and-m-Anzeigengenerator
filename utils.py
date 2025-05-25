@@ -45,8 +45,17 @@ Bitte verwende eine übersichtliche Struktur:
 - Zielgruppe: Käufer auf dem deutschen Immobilienmarkt
 - Stil: inspirierend, klar, realistisch, ansprechend
 
-Bitte NICHT die obigen Anweisungen wiederholen!
+Gib bitte NUR den Anzeigentext zurück und kommentiere NICHT die obigen Anweisungen.
 """
+
+def trim_trailing_notes(text: str) -> str:
+    lines = text.strip().split("\n")
+    while lines and (
+        "diese anzeige" in lines[-1].lower()
+        or lines[-1].strip() in ("---", "")
+    ):
+        lines.pop()
+    return "\n".join(lines)
 
 # ---------- Markdown Cleaning ----------
 
@@ -89,7 +98,7 @@ def clean_markdown(text):
 
         # Markdown-Tabelle
         if "|" in line and re.match(r"^\|.*\|$", line):
-            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            cells = [re.sub(r"\*+", "", c.strip()) for c in line.strip().strip("|").split("|")]
             lines.append(("table_row", cells))
             continue
 
@@ -98,7 +107,8 @@ def clean_markdown(text):
             lines.append(("heading2", line.replace("###", "").strip()))
             continue
         elif line.startswith("**") and line.endswith("**"):
-            lines.append(("heading3", line.strip("*").strip()))
+            line_clean = re.sub(r"\*+", "", line).strip()
+            lines.append(("heading3", line_clean))
             continue
 
         # Bullet (aber keine kaputten wie • --)

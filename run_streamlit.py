@@ -7,7 +7,8 @@ from utils import (
     create_prompt,
     generate_real_estate_ad_deeps,
     save_to_docx_with_images, 
-    rescale_img
+    rescale_img,
+    trim_trailing_notes
 )
 
 # Page setup
@@ -59,7 +60,8 @@ def main():
 
             api = st.secrets["deepseek"]
             response = generate_real_estate_ad_deeps(api, prompt)
-            st.session_state["generated_text"] = response
+            response_trimmed = trim_trailing_notes(response)
+            st.session_state["generated_text"] = response_trimmed
 
             st.session_state["docx_config"] = {
                 "logo_path": "data/logo-company.png",
