@@ -180,7 +180,7 @@ def add_image_gallery_from_folder(doc, folder, title="Innenansichten", per_row=2
 
 # ---------- Image Rescale ----------
 
-def rescale_img(input_path, output_path=None, max_size_kb=500, max_width=1200):
+def rescale_img(input_path, output_folder="data/rescaled_details", max_width=1200, quality=90): # max_size_kb=500, 
     if not os.path.isfile(input_path):
         return input_path
 
