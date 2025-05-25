@@ -40,12 +40,12 @@ Bitte verwende eine übersichtliche Struktur:
 - Eine ansprechende und aufmerksamkeitsstarke Überschrift
 - Einen Abschnitt "Key Facts" mit den wichtigsten Eckdaten
 - Eine Merkmals-Tabelle (in Markdown-Tabelle mit zwei Spalten: Merkmal | Wert)
-- Einen ausführlichen, umfangreichen und ansprechenden Haupttext in Fließtext mit Hervorhebung aller Vorteile (USPs)
-- Die Fließtext-Absätze darf ausgeschweifter sein, bevor es zu "Ihre Vorteile auf einen Blick:" kommt
-- Zielgruppe: Käufer auf dem deutschen Immobilienmarkt
-- Stil: inspirierend, klar, realistisch, ansprechend
+- Einen langen, ausführlichen, umfangreichen und ansprechenden Haupttext in Fließtext mit mindestens 4 Abschnitten mit Hervorhebung aller Vorteile (USPs)
+- Die Fließtext-Absätze sollen länger und ausgeschweifter sein, bitte rethorisch ausgeschmückt, oder auch mit einem oder zwei inhaltlichen "Hooks", bevor es zu "Ihre Vorteile auf einen Blick:" kommt
+- Zielgruppe: Käufer auf dem deutschen Immobilienmarkt, die gerne längere Texte lesen
+- Stil: inspirierend, klar, realistisch, ansprechend, geduldig viel erzählend.
 
-Gib bitte NUR den Anzeigentext zurück und kommentiere NICHT die obigen Anweisungen.
+Gib nur den Anzeigentext zurück und kommentiere nicht die obigen Anweisungen.
 """
 
 def trim_trailing_notes(text: str) -> str:
