@@ -70,7 +70,7 @@ def main():
             }
 
             # Rescale main image
-            rescaled_main = rescale_img(st.session_state["docx_config"]["main_image_path"])
+            rescaled_main = rescale_img(st.session_state["docx_config"]["main_image_path"], output_folder="data/rescaled_main")
             st.session_state["docx_config"]["main_image_path"] = rescaled_main
 
             #  Rescale detail images

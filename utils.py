@@ -37,12 +37,15 @@ Energieeffizienzklasse: {params['energy_efficiency_class']}
 Ausstattung/Merkmale: {params['features']}
 
 Bitte verwende eine übersichtliche Struktur: 
-- Eine ansprechende Überschrift
-- Einen Abschnitt "Key Facts"
-- Eine Merkmals-Tabelle
-- Einen ausführlichen, umfangreichen und ansprechenden Fließtext mit Hervorhebung aller Vorteilen (USPs)
+- Eine ansprechende und aufmerksamkeitsstarke Überschrift
+- Einen Abschnitt "Key Facts" mit den wichtigsten Eckdaten
+- Eine Merkmals-Tabelle (in Markdown-Tabelle mit zwei Spalten: Merkmal | Wert)
+- Einen ausführlichen, umfangreichen und ansprechenden Haupttext in Fließtext mit Hervorhebung aller Vorteile (USPs)
+- Die Fließtext-Absätze darf ausgeschweifter sein, bevor es zu "Ihre Vorteile auf einen Blick:" kommt
 - Zielgruppe: Käufer auf dem deutschen Immobilienmarkt
 - Stil: inspirierend, klar, realistisch, ansprechend
+
+Bitte NICHT die obigen Anweisungen wiederholen!
 """
 
 # ---------- Markdown Cleaning ----------
@@ -124,7 +127,7 @@ def add_logo_top_right(doc, logo_path):
         p.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
         p.add_run().add_picture(logo_path, width=Inches(2))
 
-def rescale_img(input_path_or_folder, output_folder="data/rescaled", max_width=1000, quality=85):
+def rescale_img(input_path_or_folder, output_folder="data/rescaled_details", max_width=1000, quality=85):
     """
     Rescales a single image or all images in a folder to max width.
     Saves them as optimized JPEGs in `output_folder` and returns paths.
