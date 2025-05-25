@@ -1,6 +1,7 @@
 import os
 import re
 from datetime import datetime
+from PIL import Image
 from docx import Document
 from docx.shared import Inches
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
@@ -112,7 +113,7 @@ def clean_markdown(text):
 
     return lines
 
-# ---------- Word Helper ----------
+# ---------- Image Helper ----------
 
 def add_logo_top_right(doc, logo_path):
     if logo_path and os.path.exists(logo_path):
@@ -123,6 +124,55 @@ def add_logo_top_right(doc, logo_path):
         p.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
         p.add_run().add_picture(logo_path, width=Inches(2))
 
+def rescale_img(input_path_or_folder, output_folder="data/rescaled", max_width=900, quality=85):
+    """
+    Rescales a single image or all images in a folder to max width.
+    Saves them as optimized JPEGs in `output_folder` and returns paths.
+
+    Args:
+        input_path_or_folder (str): Path to image file or directory.
+        output_folder (str): Where to save rescaled images.
+        max_width (int): Max pixel width.
+        quality (int): JPEG quality (default 85).
+
+    Returns:
+        str | dict: Rescaled image path (if single image) or dict of {original_path: resized_path}
+    """
+    os.makedirs(output_folder, exist_ok=True)
+
+    def _rescale_and_save(img_path):
+        try:
+            with Image.open(img_path) as img:
+                img_format = img.format or "JPEG"
+                width, height = img.size
+
+                if width > max_width:
+                    new_height = int(max_width * height / width)
+                    img = img.resize((max_width, new_height), Image.LANCZOS)
+
+                base_name = os.path.splitext(os.path.basename(img_path))[0] + ".jpg"
+                out_path = os.path.join(output_folder, base_name)
+                img.convert("RGB").save(out_path, format="JPEG", quality=quality, optimize=True)
+                return out_path
+        except Exception as e:
+            print(f"⚠️ Fehler beim Skalieren von {img_path}: {e}")
+            return img_path  # fallback
+
+    if os.path.isfile(input_path_or_folder):
+        return _rescale_and_save(input_path_or_folder)
+    
+    elif os.path.isdir(input_path_or_folder):
+        results = {}
+        for f in os.listdir(input_path_or_folder):
+            full_path = os.path.join(input_path_or_folder, f)
+            if f.lower().endswith((".png", ".jpg", ".jpeg")):
+                resized = _rescale_and_save(full_path)
+                results[full_path] = resized
+        return results
+
+    else:
+        raise ValueError(f"Pfad nicht gefunden: {input_path_or_folder}")
+    
 def add_main_image(doc, path, caption=""):
     if path and os.path.exists(path):
         p = doc.add_paragraph()
@@ -151,6 +201,10 @@ def classify_room_priority(name):
 def extract_number(fname):
     match = re.search(r'(\d+)(?=\.\w+$)', fname)
     return int(match.group(1)) if match else 999
+
+# TODO 
+def rescale_images():
+    return 0
 
 def add_image_gallery_from_folder(doc, folder, title="Innenansichten", per_row=2, width=2.5):
     if not os.path.isdir(folder):

@@ -6,7 +6,8 @@ from utils import (
     extract_number,
     create_prompt,
     generate_real_estate_ad_deeps,
-    save_to_docx_with_images
+    save_to_docx_with_images, 
+    rescale_img
 )
 
 # Page setup
@@ -67,6 +68,17 @@ def main():
                 "output_dir": "output",
                 "title_prefix": "anzeige"
             }
+
+            # Rescale main image
+            rescaled_main = rescale_img(st.session_state["docx_config"]["main_image_path"])
+            st.session_state["docx_config"]["main_image_path"] = rescaled_main
+
+            #  Rescale detail images
+            rescaled_gallery = rescale_img(st.session_state["docx_config"]["detail_image_folder"], max_width=500)
+            if rescaled_gallery:
+                # Overwrite folder path to point to the rescaled image folder
+                st.session_state["docx_config"]["detail_image_folder"] = os.path.dirname(list(rescaled_gallery.values())[0])
+
         except Exception as e:
             st.error(f"Fehler: {e}")
 
