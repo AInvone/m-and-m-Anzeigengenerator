@@ -136,8 +136,20 @@ def set_table_border(tbl, border_dir, val="single", size="4", color="888888"):
     Setzt Tabellenrahmen in einem docx-Tabellelement.
     """
     tbl_pr = tbl.tblPr
-    tbl_borders = tbl_pr.tblBorders or OxmlElement("w:tblBorders")
 
+    # nur EIN tblBorders-Block 
+    tbl_borders = tbl_pr.tblBorders or OxmlElement("w:tblBorders") 
+    # tbl_borders = tbl_pr.find(qn("w:tblBorders"))
+    if tbl_borders is None:
+        tbl_borders = OxmlElement("w:tblBorders")
+        tbl_pr.append(tbl_borders)
+
+    # Ersetze ggf. existierenden Rahmen 
+    existing = tbl_borders.find(qn(f"w:{border_dir}"))
+    if existing is not None:
+        tbl_borders.remove(existing)
+
+    # Neuen Border hinzufügen
     border = OxmlElement(f"w:{border_dir}")
     border.set(qn("w:val"), val)
     border.set(qn("w:sz"), size)
@@ -145,7 +157,7 @@ def set_table_border(tbl, border_dir, val="single", size="4", color="888888"):
     border.set(qn("w:color"), color)
 
     tbl_borders.append(border)
-    tbl_pr.append(tbl_borders)
+    # tbl_pr.append(tbl_borders)
 
 
 def add_clean_table_to_docx(doc, rows, bold_header=True):
@@ -191,6 +203,14 @@ def add_clean_table_to_docx(doc, rows, bold_header=True):
 
             para.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
 
+        # Zeilenhöhe etwas erhöhen
+        tr = row._tr
+        trPr = tr.get_or_add_trPr()
+        trHeight = OxmlElement('w:trHeight')
+        trHeight.set(qn('w:val'), '400')  # entspricht ~0.4 cm
+        trHeight.set(qn('w:hRule'), 'atLeast')
+        trPr.append(trHeight)
+        
     return table
 
 
