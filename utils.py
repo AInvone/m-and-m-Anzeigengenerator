@@ -315,54 +315,6 @@ def add_clean_table_to_docx_old_new(doc, rows, bold_header=True):
     return table
 
 
-def add_clean_table_to_docx_old(doc, rows, bold_header=True):
-    """
-    Fügt eine schön formatierte Tabelle zu einem Word-Dokument hinzu.
-    Args:
-        doc: docx.Document Objekt
-        rows: Liste von Zeilen, jede Zeile ist Liste von Zellen (strings)
-        bold_header: Ob erste Zeile fett formatiert wird
-    """
-    if not rows or not all(isinstance(r, list) for r in rows):
-        return
-
-    # Filtere alle Zeilen raus, die nur aus "---" bestehen
-    filtered_rows = [
-        r for r in rows
-        if not all(set(cell.strip()) <= {"-"} for cell in r)
-    ]
-
-    if not filtered_rows:
-        return
-
-    table = doc.add_table(rows=0, cols=len(filtered_rows[0]))
-    table.style = "Table Grid"
-
-    # Tabellenlinien: Dunkelgrau
-    tbl = table._tbl
-    for border_dir in ["top", "left", "bottom", "right", "insideH", "insideV"]:
-        set_table_border(tbl, border_dir, "single", "6", "888888")
-
-    for row_idx, row_cells in enumerate(filtered_rows):
-        row = table.add_row()
-        for col_idx, cell_text in enumerate(row_cells):
-            clean_text = cell_text.replace("**", "").strip()
-            is_bold = ("**" in cell_text) or (bold_header and row_idx == 0)
-
-            cell = row.cells[col_idx]
-            para = cell.paragraphs[0]
-            run = para.add_run(clean_text)
-            run.bold = is_bold
-            para.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
-
-    # Zusätzlicher Abstand zwischen Zeilen (optional)
-    for row in table.rows:
-        for cell in row.cells:
-            for para in cell.paragraphs:
-                para.paragraph_format.space_after = Inches(0.05)
-
-    return table
-
 
 # ---------- Image Helper ----------
 
@@ -491,16 +443,19 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
     doc.add_paragraph()
 
     start_index = 0
+    title_text = None
 
-    if not cleaned or cleaned[0][0] != 'heading1':
-        h = doc.add_heading("Immobilien-Exposé", level=1)
-        h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-        # start_index = 1
-    else: 
+    if cleaned and cleaned[0][0] == 'heading1':
         title_text = ''.join([t[1] for t in cleaned[0][1]])
-        h = doc.add_heading(title_text, level=1)
-        h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
         start_index = 1
+
+    # Fallback Titel
+    if not title_text:
+        title_text = "Immobilien-Exposé"
+        start_index = 1
+
+    h = doc.add_heading("Immobilien-Exposé", level=1)
+    h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
     add_main_image(doc, main_image_path, "Außenansicht der Immobilie")
 
