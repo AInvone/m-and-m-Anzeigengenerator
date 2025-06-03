@@ -5,6 +5,9 @@ from PIL import Image
 from docx import Document
 from docx.shared import Inches
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+
 from openai import OpenAI
 
 # ---------- LLM Functions ----------
@@ -98,7 +101,8 @@ def clean_markdown(text):
 
         # Markdown-Tabelle
         if "|" in line and re.match(r"^\|.*\|$", line):
-            cells = [re.sub(r"\*+", "", c.strip()) for c in line.strip().strip("|").split("|")]
+#            cells = [re.sub(r"\*+", "", c.strip()) for c in line.strip().strip("|").split("|")]
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
             lines.append(("table_row", cells))
             continue
 
@@ -126,6 +130,70 @@ def clean_markdown(text):
 
     return lines
 
+
+def set_table_border(tbl, border_dir, val="single", size="4", color="888888"):
+    """
+    Setzt Tabellenrahmen in einem docx-Tabellelement.
+    """
+    tbl_pr = tbl.tblPr
+    tbl_borders = tbl_pr.tblBorders or OxmlElement("w:tblBorders")
+
+    border = OxmlElement(f"w:{border_dir}")
+    border.set(qn("w:val"), val)
+    border.set(qn("w:sz"), size)
+    border.set(qn("w:space"), "0")
+    border.set(qn("w:color"), color)
+
+    tbl_borders.append(border)
+    tbl_pr.append(tbl_borders)
+
+
+def add_clean_table_to_docx(doc, rows, bold_header=True):
+    """
+    Fügt eine schön formatierte Tabelle zu einem Word-Dokument hinzu.
+    Args:
+        doc: docx.Document Objekt
+        rows: Liste von Zeilen, jede Zeile ist Liste von Zellen (strings)
+        bold_header: Ob erste Zeile fett formatiert wird
+    """
+    if not rows or not all(isinstance(r, list) for r in rows):
+        return
+
+    # Zeile mit nur Bindestrichen herausfiltern
+    filtered_rows = [
+        r for r in rows
+        if not all(cell.strip().startswith("---") or set(cell.strip()) == {"-"} for cell in r)
+    ]
+
+    if not filtered_rows:
+        return
+
+    table = doc.add_table(rows=0, cols=len(filtered_rows[0]))
+    table.style = "Table Grid"
+
+    # Tabellenlinien: Dunkelgrau
+    tbl = table._tbl
+    for border_dir in ["top", "left", "bottom", "right", "insideH", "insideV"]:
+        set_table_border(tbl, border_dir, "single", "4", "888888")  # 888888 = dunkelgrau
+
+    for row_idx, row_cells in enumerate(filtered_rows):
+        row = table.add_row()
+        for col_idx, cell_text in enumerate(row_cells):
+            clean_text = cell_text.replace("**", "").strip()
+            cell = row.cells[col_idx]
+            para = cell.paragraphs[0]
+            run = para.add_run(clean_text)
+
+            if bold_header and row_idx == 0:
+                run.bold = True
+            elif "**" in cell_text:
+                run.bold = True
+
+            para.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
+
+    return table
+
+
 # ---------- Image Helper ----------
 
 def add_logo_top_right(doc, logo_path):
@@ -137,7 +205,7 @@ def add_logo_top_right(doc, logo_path):
         p.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
         p.add_run().add_picture(logo_path, width=Inches(2))
 
-def rescale_img(input_path_or_folder, output_folder="data/rescaled_details", max_width=1000, quality=85):
+def rescale_img(input_path_or_folder, output_folder="data/rescaled_details", max_width=1500, quality=100):
     """
     Rescales a single image or all images in a folder to max width.
     Saves them as optimized JPEGs in `output_folder` and returns paths.
@@ -253,7 +321,12 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
     doc.add_paragraph()
 
     start_index = 0
-    if cleaned and cleaned[0][0] == 'heading1':
+
+    if not cleaned or cleaned[0][0] != 'heading1':
+        h = doc.add_heading("Immobilien-Exposé", level=1)
+        h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+        # start_index = 1
+    else: 
         title_text = ''.join([t[1] for t in cleaned[0][1]])
         h = doc.add_heading(title_text, level=1)
         h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
@@ -261,20 +334,18 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
 
     add_main_image(doc, main_image_path, "Außenansicht der Immobilie")
 
-    table = None
+    # table = None
     bullet_stack = [0]
+    table_rows = []
 
     for elem_type, content in cleaned[start_index:]:
         if elem_type == "table_row":
-            if 'table' not in locals() or table is None:
-                table = doc.add_table(rows=0, cols=len(content))
-                table.style = 'Table Grid'
-            row = table.add_row().cells
-            for i, val in enumerate(content):
-                row[i].text = val
+            table_rows.append(content)
             continue
-        else:
-            table = None
+        elif table_rows:
+            # when we are done with the table, render the table
+             add_clean_table_to_docx(doc, table_rows)
+             table_rows = []
 
         if elem_type == "heading2":
             doc.add_heading(content, level=2)
@@ -291,6 +362,10 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
             for t, val in content:
                 run = p.add_run(val)
                 run.bold = (t == 'bold')
+
+    # if table comes at the end, make sure to render 
+    if table_rows:
+        add_clean_table_to_docx(doc, table_rows)
 
     if detail_image_folder:
         add_image_gallery_from_folder(doc, detail_image_folder)

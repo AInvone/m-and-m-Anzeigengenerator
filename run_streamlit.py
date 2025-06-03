@@ -76,7 +76,7 @@ def main():
             st.session_state["docx_config"]["main_image_path"] = rescaled_main
 
             #  Rescale detail images
-            rescaled_gallery = rescale_img(st.session_state["docx_config"]["detail_image_folder"], max_width=500)
+            rescaled_gallery = rescale_img(st.session_state["docx_config"]["detail_image_folder"], max_width=550, quality=80)
             if rescaled_gallery:
                 # Overwrite folder path to point to the rescaled image folder
                 st.session_state["docx_config"]["detail_image_folder"] = os.path.dirname(list(rescaled_gallery.values())[0])
