@@ -101,9 +101,11 @@ def clean_markdown(text):
 
         # Markdown-Tabelle
         if "|" in line and re.match(r"^\|.*\|$", line):
-#            cells = [re.sub(r"\*+", "", c.strip()) for c in line.strip().strip("|").split("|")]
-            cells = [c.strip() for c in line.strip().strip("|").split("|")]
-            lines.append(("table_row", cells))
+            # Zeile ignorieren, falls sie nur "--"-Zeilen enthaelt 
+            raw_cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if all(set(c) <= {"-"} for c in raw_cells):
+                continue  # Trennerzeile überspringen
+            lines.append(("table_row", raw_cells))
             continue
 
         # Unterüberschriften
