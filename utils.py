@@ -136,20 +136,8 @@ def set_table_border(tbl, border_dir, val="single", size="4", color="888888"):
     Setzt Tabellenrahmen in einem docx-Tabellelement.
     """
     tbl_pr = tbl.tblPr
+    tbl_borders = tbl_pr.tblBorders or OxmlElement("w:tblBorders")
 
-    # nur EIN tblBorders-Block 
-    tbl_borders = tbl_pr.tblBorders or OxmlElement("w:tblBorders") 
-    # tbl_borders = tbl_pr.find(qn("w:tblBorders"))
-    if tbl_borders is None:
-        tbl_borders = OxmlElement("w:tblBorders")
-        tbl_pr.append(tbl_borders)
-
-    # Ersetze ggf. existierenden Rahmen 
-    existing = tbl_borders.find(qn(f"w:{border_dir}"))
-    if existing is not None:
-        tbl_borders.remove(existing)
-
-    # Neuen Border hinzufügen
     border = OxmlElement(f"w:{border_dir}")
     border.set(qn("w:val"), val)
     border.set(qn("w:sz"), size)
@@ -157,7 +145,7 @@ def set_table_border(tbl, border_dir, val="single", size="4", color="888888"):
     border.set(qn("w:color"), color)
 
     tbl_borders.append(border)
-    # tbl_pr.append(tbl_borders)
+    tbl_pr.append(tbl_borders)
 
 
 def add_clean_table_to_docx(doc, rows, bold_header=True):
@@ -182,7 +170,6 @@ def add_clean_table_to_docx(doc, rows, bold_header=True):
 
     table = doc.add_table(rows=0, cols=len(filtered_rows[0]))
     table.style = "Table Grid"
-    table.autofit = True
 
     # Tabellenlinien: Dunkelgrau
     tbl = table._tbl
@@ -204,14 +191,6 @@ def add_clean_table_to_docx(doc, rows, bold_header=True):
 
             para.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
 
-        # Zeilenhöhe etwas erhöhen
-        tr = row._tr
-        trPr = tr.get_or_add_trPr()
-        trHeight = OxmlElement('w:trHeight')
-        trHeight.set(qn('w:val'), '400')  # entspricht ~0.4 cm
-        trHeight.set(qn('w:hRule'), 'atLeast')
-        trPr.append(trHeight)
-        
     return table
 
 
@@ -342,19 +321,16 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
     doc.add_paragraph()
 
     start_index = 0
-    title_text = None 
 
-    if cleaned and cleaned[0][0] == 'heading1':
+    if not cleaned or cleaned[0][0] != 'heading1':
+        h = doc.add_heading("Immobilien-Exposé", level=1)
+        h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+        # start_index = 1
+    else: 
         title_text = ''.join([t[1] for t in cleaned[0][1]])
+        h = doc.add_heading(title_text, level=1)
+        h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
         start_index = 1
-
-    # Fallback Titel
-    if not title_text: 
-        title_text = "Immobilien-Exposé"
-        start_index = 1
-
-    h = doc.add_heading(title_text, level=1)  
-    h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
     add_main_image(doc, main_image_path, "Außenansicht der Immobilie")
 
@@ -387,7 +363,7 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
                 run = p.add_run(val)
                 run.bold = (t == 'bold')
 
-    # if table comes at the end, make sure to render 
+    # Tabelle am Ende noch rendern, falls sie zuletzt kommt
     if table_rows:
         add_clean_table_to_docx(doc, table_rows)
 

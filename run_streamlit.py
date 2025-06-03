@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import re
 from utils import (
+    clean_markdown,
     classify_room_priority,
     extract_number,
     create_prompt,
@@ -105,8 +106,60 @@ def main():
                 st.columns([1, 2, 1])[1].image(main_img, caption="Außenansicht", use_container_width=True)
 
             # BODY TEXT
-            body = "\n".join(st.session_state["generated_text"].split("\n")[1:])
-            st.markdown(body)
+            # body = "\n".join(st.session_state["generated_text"].split("\n")[1:])
+            # st.markdown(body)
+
+
+            # Parsed Markdown-Inhalte extrahieren
+            cleaned_parts = clean_markdown(st.session_state["generated_text"])
+
+            table_rows = []
+
+            for elem_type, content in cleaned_parts:
+                if elem_type == "heading1":
+                    continue  # Schon ganz oben als Titel gesetzt
+
+                elif elem_type == "table_row":
+                    table_rows.append(content)
+
+                elif table_rows:
+                    # Wenn nach Tabelle ein anderer Abschnitt kommt → Tabelle zuerst rendern
+                    st.markdown("### Key Facts")
+                    table_md = "| " + " | ".join(table_rows[0]) + " |\n"
+                    table_md += "| " + " | ".join(["---"] * len(table_rows[0])) + " |\n"
+                    for row in table_rows[1:]:
+                        table_md += "| " + " | ".join(row) + " |\n"
+                    st.markdown(table_md, unsafe_allow_html=True)
+                    table_rows = []  # zurücksetzen für nächste Tabelle
+
+                if elem_type == "heading2":
+                    st.subheader(content)
+
+                elif elem_type == "heading3":
+                    st.markdown(f"**{content}**")
+
+                elif elem_type == "bullet":
+                    for t, val in content[1]:
+                        bullet = f"- **{val}**" if t == "bold" else f"- {val}"
+                        st.markdown(bullet)
+
+                elif elem_type in ("bold_text", "paragraph"):
+                    line = ""
+                    for t, val in content:
+                        if t == "bold":
+                            line += f"**{val}**"
+                        else:
+                            line += val
+                    st.markdown(line)
+
+            # Falls Tabelle am Ende steht und noch nicht gerendert wurde
+            if table_rows:
+                st.markdown("### Key Facts")
+                table_md = "| " + " | ".join(table_rows[0]) + " |\n"
+                table_md += "| " + " | ".join(["---"] * len(table_rows[0])) + " |\n"
+                for row in table_rows[1:]:
+                    table_md += "| " + " | ".join(row) + " |\n"
+                st.markdown(table_md, unsafe_allow_html=True)
 
             # DETAILBILDER
             folder = st.session_state["docx_config"]["detail_image_folder"]
