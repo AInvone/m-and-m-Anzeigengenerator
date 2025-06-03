@@ -164,6 +164,55 @@ def set_table_border(tbl, border_dir, val="single", size="4", color="888888"):
 
 def add_clean_table_to_docx(doc, rows, bold_header=True):
     """
+    Fügt eine modern formatierte Tabelle mit grauen Rändern und sauberem Styling ein.
+    """
+    if not rows or not all(isinstance(r, list) for r in rows):
+        return
+
+    # Entferne Zeilen wie ['------', '------']
+    filtered_rows = [
+        r for r in rows
+        if not all(set(cell.strip()) <= {"-"} for cell in r)
+    ]
+    if not filtered_rows:
+        return
+
+    # Tabelle erstellen
+    table = doc.add_table(rows=0, cols=len(filtered_rows[0]))
+    table.style = "Table Grid"
+
+    # Ränder auf Grau setzen
+    tbl = table._tbl
+    for direction in ["top", "left", "bottom", "right", "insideH", "insideV"]:
+        set_table_border(tbl, direction, "single", "6", "888888")
+
+    for row_idx, row_cells in enumerate(filtered_rows):
+        row = table.add_row()
+        for col_idx, raw_text in enumerate(row_cells):
+            cell = row.cells[col_idx]
+            para = cell.paragraphs[0]
+
+            # "**Text**" erkennen und formatieren
+            matches = re.findall(r"\*\*(.*?)\*\*", raw_text)
+            if matches:
+                for part in re.split(r"(\*\*.*?\*\*)", raw_text):
+                    if part.startswith("**") and part.endswith("**"):
+                        para.add_run(part.strip("**")).bold = True
+                    else:
+                        para.add_run(part)
+            else:
+                run = para.add_run(raw_text.strip())
+                if bold_header and row_idx == 0:
+                    run.bold = True
+
+            para.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
+            para.paragraph_format.space_after = Inches(0.05)
+
+    return table
+
+
+def add_clean_table_to_docx_old(doc, rows, bold_header=True):
+    """
     Fügt eine schön formatierte Tabelle zu einem Word-Dokument hinzu.
     Args:
         doc: docx.Document Objekt
