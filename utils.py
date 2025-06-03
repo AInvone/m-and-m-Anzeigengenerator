@@ -99,14 +99,26 @@ def clean_markdown(text):
             continue
         first_line = False
 
+        # # Markdown-Tabelle
+        # if "|" in line and re.match(r"^\|.*\|$", line):
+        #     # Zeile ignorieren, falls sie nur "--"-Zeilen enthaelt 
+        #     raw_cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        #     if all(set(c) <= {"-"} for c in raw_cells):
+        #         continue  # Trennerzeile überspringen
+        #     lines.append(("table_row", raw_cells))
+        #     continue
+
         # Markdown-Tabelle
         if "|" in line and re.match(r"^\|.*\|$", line):
-            # Zeile ignorieren, falls sie nur "--"-Zeilen enthaelt 
             raw_cells = [c.strip() for c in line.strip().strip("|").split("|")]
+
+            # Ignoriere Zeile mit nur "---"
             if all(set(c) <= {"-"} for c in raw_cells):
-                continue  # Trennerzeile überspringen
+                continue
+
             lines.append(("table_row", raw_cells))
             continue
+
 
         # Unterüberschriften
         if line.startswith("###"):
@@ -161,10 +173,10 @@ def add_clean_table_to_docx(doc, rows, bold_header=True):
     if not rows or not all(isinstance(r, list) for r in rows):
         return
 
-    # Zeile mit nur Bindestrichen herausfiltern
+    # Filtere alle Zeilen raus, die nur aus "---" bestehen
     filtered_rows = [
         r for r in rows
-        if not all(cell.strip().startswith("---") or set(cell.strip()) == {"-"} for cell in r)
+        if not all(set(cell.strip()) <= {"-"} for cell in r)
     ]
 
     if not filtered_rows:
@@ -176,22 +188,25 @@ def add_clean_table_to_docx(doc, rows, bold_header=True):
     # Tabellenlinien: Dunkelgrau
     tbl = table._tbl
     for border_dir in ["top", "left", "bottom", "right", "insideH", "insideV"]:
-        set_table_border(tbl, border_dir, "single", "4", "888888")  # 888888 = dunkelgrau
+        set_table_border(tbl, border_dir, "single", "6", "888888")
 
     for row_idx, row_cells in enumerate(filtered_rows):
         row = table.add_row()
         for col_idx, cell_text in enumerate(row_cells):
             clean_text = cell_text.replace("**", "").strip()
+            is_bold = ("**" in cell_text) or (bold_header and row_idx == 0)
+
             cell = row.cells[col_idx]
             para = cell.paragraphs[0]
             run = para.add_run(clean_text)
-
-            if bold_header and row_idx == 0:
-                run.bold = True
-            elif "**" in cell_text:
-                run.bold = True
-
+            run.bold = is_bold
             para.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
+
+    # Zusätzlicher Abstand zwischen Zeilen (optional)
+    for row in table.rows:
+        for cell in row.cells:
+            for para in cell.paragraphs:
+                para.paragraph_format.space_after = Inches(0.05)
 
     return table
 
