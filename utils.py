@@ -182,6 +182,7 @@ def add_clean_table_to_docx(doc, rows, bold_header=True):
 
     table = doc.add_table(rows=0, cols=len(filtered_rows[0]))
     table.style = "Table Grid"
+    table.autofit = True
 
     # Tabellenlinien: Dunkelgrau
     tbl = table._tbl
@@ -341,16 +342,19 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
     doc.add_paragraph()
 
     start_index = 0
+    title_text = None 
 
-    if not cleaned or cleaned[0][0] != 'heading1':
-        h = doc.add_heading("Immobilien-Exposé", level=1)
-        h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-        # start_index = 1
-    else: 
+    if cleaned and cleaned[0][0] == 'heading1':
         title_text = ''.join([t[1] for t in cleaned[0][1]])
-        h = doc.add_heading(title_text, level=1)
-        h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
         start_index = 1
+
+    # Fallback Titel
+    if not title_text: 
+        title_text = "Immobilien-Exposé"
+        start_index = 1
+
+    h = doc.add_heading(title_text, level=1)  
+    h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
     add_main_image(doc, main_image_path, "Außenansicht der Immobilie")
 

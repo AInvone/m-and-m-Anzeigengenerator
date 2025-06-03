@@ -95,7 +95,8 @@ def main():
 
             # TITEL
             title = st.session_state["generated_text"].split("\n")[0]
-            title = re.sub(r"^\*\*(.+?)\*\*$", r"\1", title.strip())
+            title = title.strip().lstrip("#").strip()
+            title = re.sub(r"^\*\*(.+?)\*\*$", r"\1", title)
             st.markdown(f"<h2 style='text-align: center'>{title}</h2>", unsafe_allow_html=True)
 
             # MAIN IMAGE
