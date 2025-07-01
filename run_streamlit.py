@@ -159,8 +159,12 @@ def main():
                 table_md = "| " + " | ".join(table_rows[0]) + " |\n"
                 table_md += "| " + " | ".join(["---"] * len(table_rows[0])) + " |\n"
                 for row in table_rows[1:]:
-                    table_md += "| " + " | ".join(row) + " |\n"
-                st.markdown(table_md, unsafe_allow_html=True)
+                    # table_md += "| " + " | ".join(row) + " |\n"
+                    if len(row) == 2:
+                        st.markdown(f"- {row[0]}: {row[1]}")
+                    else:
+                        st.markdown(f"- {' - '.join(row)}")
+                # st.markdown(table_md, unsafe_allow_html=True)
 
             # DETAILBILDER
             folder = st.session_state["docx_config"]["detail_image_folder"]
