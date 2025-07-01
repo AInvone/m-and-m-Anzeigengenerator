@@ -124,7 +124,7 @@ def main():
 
                 elif table_rows:
                     # Wenn nach Tabelle ein anderer Abschnitt kommt → Tabelle zuerst rendern
-                    st.markdown("### Key Facts")
+                    st.markdown("### Markmale und Details")
                     table_md = "| " + " | ".join(table_rows[0]) + " |\n"
                     table_md += "| " + " | ".join(["---"] * len(table_rows[0])) + " |\n"
                     for row in table_rows[1:]:
