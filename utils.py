@@ -329,61 +329,131 @@ def add_image_gallery_from_folder(doc, folder, title="Innenansichten", per_row=2
 
 # ---------- Save Word File ----------
 
+AGB_TEXT = '''Allgemeine Geschäftsbedingungen\n\n1. ... (Hier steht Ihr AGB-Text, bitte ersetzen Sie diesen Platzhalter durch Ihren echten Text) ...\n\n2. ...\n\n3. ...\n\n(Seitenumbruch nach ca. 1,5 Seiten)\n'''
+
+def add_call_to_action(doc, text):
+    table = doc.add_table(rows=1, cols=1)
+    cell = table.cell(0, 0)
+    cell.text = text
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    shd = OxmlElement('w:shd')
+    shd.set(qn('w:fill'), 'F7D358')  # light yellow
+    tcPr.append(shd)
+    cell.paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    for run in cell.paragraphs[0].runs:
+        run.bold = True
+        run.font.size = Inches(0.18)
+    table.allow_autofit = True
+    return table
+
+def add_contact_box(doc, name, phone, email, website):
+    doc.add_heading('Ihre Ansprechpartnerin', level=2)
+    p = doc.add_paragraph()
+    p.add_run(name + '\n').bold = True
+    p.add_run(f'Tel: {phone}\n')
+    p.add_run(f'E-Mail: {email}\n')
+    p.add_run(f'Web: {website}')
+    return p
+
+def add_key_facts_table(doc, facts):
+    table = doc.add_table(rows=1, cols=len(facts))
+    row = table.rows[0]
+    for i, (k, v) in enumerate(facts.items()):
+        cell = row.cells[i]
+        cell.text = f"{k}:\n{v}"
+        cell.paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    table.style = "Table Grid"
+    return table
+
 def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
                              detail_image_folder=None, output_dir="output",
-                             title_prefix="anzeige", contact_info=None):
-    from docx.shared import Pt
+                             title_prefix="anzeige", contact_info=None,
+                             key_facts=None, specific_title=None, address=None,
+                             call_to_action=None, contact_fields=None, floorplan_path=None):
     os.makedirs(output_dir, exist_ok=True)
     filename = f"{title_prefix}-{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
     filepath = os.path.join(output_dir, filename)
-
     doc = Document()
-    cleaned = clean_markdown(text)
-
+    # --- PAGE 1 ---
+    # Title
+    doc.add_heading("Ihr Immobilienangebot", level=0)
     # Logo
     add_logo_top_right(doc, logo_path)
-    doc.add_paragraph()
-
-    # Parse sections
-    section = None
-    table_rows = []
-    for elem_type, content in cleaned:
-        if elem_type == "heading1":
-            h = doc.add_heading(content[0][1], level=1)
-            h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-        elif elem_type == "heading2":
-            doc.add_heading(content, level=2)
-        elif elem_type == "heading3":
-            doc.add_heading(content, level=3)
-        elif elem_type == "table_row":
-            table_rows.append(content)
-        elif table_rows:
-            add_clean_table_to_docx(doc, table_rows)
-            table_rows = []
-        elif elem_type == "bullet":
-            p = doc.add_paragraph(style='List Bullet')
-            for t, val in content[1]:
-                run = p.add_run(val)
-                run.bold = (t == 'bold')
-        elif elem_type in ("bold_text", "paragraph"):
-            p = doc.add_paragraph()
-            for t, val in content:
-                run = p.add_run(val)
-                run.bold = (t == 'bold')
-    if table_rows:
-        add_clean_table_to_docx(doc, table_rows)
-
-    # Main image
-    add_main_image(doc, main_image_path, "Außenansicht der Immobilie")
-
-    # Gallery
+    # Main image (full width)
+    add_main_image(doc, main_image_path, "")
+    # Specific title
+    if specific_title:
+        h = doc.add_heading(specific_title, level=1)
+        h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    # Address
+    if address:
+        p = doc.add_paragraph(address)
+        p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    # Key facts
+    if key_facts:
+        add_key_facts_table(doc, key_facts)
+    # Call to action
+    if call_to_action:
+        add_call_to_action(doc, call_to_action)
+    # Contact box (bottom of page)
+    if contact_fields:
+        add_contact_box(doc, **contact_fields)
+    doc.add_page_break()
+    # --- IMAGE GALLERY ---
     if detail_image_folder:
         add_image_gallery_from_folder(doc, detail_image_folder)
-
-    # Contact
-    if contact_info:
-        doc.add_heading("Kontakt", level=2)
-        doc.add_paragraph(contact_info)
-
+        doc.add_page_break()
+    if floorplan_path and os.path.isfile(floorplan_path):
+        add_main_image(doc, floorplan_path, "Grundriss")
+        doc.add_page_break()
+    # --- DESCRIPTION ---
+    cleaned = clean_markdown(text)
+    in_desc = False
+    for elem_type, content in cleaned:
+        if elem_type == "heading2" and "objektbeschreibung" in content.lower():
+            doc.add_heading(content, level=2)
+            in_desc = True
+            continue
+        if in_desc:
+            if elem_type == "heading2" and "daten und fakten" in content.lower():
+                break
+            elif elem_type == "paragraph":
+                p = doc.add_paragraph()
+                for t, val in content:
+                    run = p.add_run(val)
+                    run.bold = (t == 'bold')
+            elif elem_type == "bullet":
+                p = doc.add_paragraph(style='List Bullet')
+                for t, val in content[1]:
+                    run = p.add_run(val)
+                    run.bold = (t == 'bold')
+    doc.add_page_break()
+    # --- DATEN UND FAKTEN ---
+    in_facts = False
+    table_rows = []
+    for elem_type, content in cleaned:
+        if elem_type == "heading2" and "daten und fakten" in content.lower():
+            doc.add_heading(content, level=2)
+            in_facts = True
+            continue
+        if in_facts:
+            if elem_type == "table_row":
+                table_rows.append(content)
+            elif table_rows:
+                add_clean_table_to_docx(doc, table_rows)
+                table_rows = []
+            elif elem_type == "paragraph":
+                p = doc.add_paragraph()
+                for t, val in content:
+                    run = p.add_run(val)
+                    run.bold = (t == 'bold')
+    if table_rows:
+        add_clean_table_to_docx(doc, table_rows)
+    doc.add_page_break()
+    # --- AGB ---
+    doc.add_heading("Allgemeine Geschäftsbedingungen", level=2)
+    for para in AGB_TEXT.split("\n\n"):
+        doc.add_paragraph(para)
     doc.save(filepath)
     return filepath
