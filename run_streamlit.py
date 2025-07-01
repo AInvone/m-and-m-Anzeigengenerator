@@ -169,13 +169,16 @@ def main():
             if st.button("📥 Word-Datei erstellen"):
                 docx_path = save_to_docx_with_images(
                     text=st.session_state["generated_text"],
-                    **st.session_state["docx_config"],
-                    output_dir=st.session_state["docx_config"]["output_dir"]
+                    **st.session_state["docx_config"]
+#                    output_dir=st.session_state["docx_config"]["output_dir"]
                 )
                 st.session_state["docx_path"] = docx_path
                 with open(docx_path, "rb") as f:
                     st.download_button("⬇️ Word-Datei herunterladen", f, os.path.basename(docx_path),
                                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                    
+                st.success(f"Word-Datei gespeichert unter:\n`{os.path.abspath(docx_path)}`")
+                
         except Exception as e:
             st.error(f"Fehler bei der Vorschau: {e}")
 
