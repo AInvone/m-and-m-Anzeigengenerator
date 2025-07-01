@@ -30,13 +30,8 @@ def set_sidebar():
             "Maklerprovision": st.text_input("Maklerprovision", "3,57% inkl. MwSt."),
             "Bezugstermin": st.text_input("Bezugstermin", "ab sofort")
         }
-        contact_fields = {
-            "name": st.text_input("Ansprechpartner/in", "Max Mustermann"),
-            "phone": st.text_input("Telefon", "01234/567890"),
-            "email": st.text_input("E-Mail", "info@immobilien.de"),
-            "website": st.text_input("Webseite", "www.immobilien.de")
-        }
-        return {
+        # Property fields first
+        property_inputs = {
             "action": st.selectbox("Aktion*", ["Kauf", "Miete"]),
             "immotype": st.selectbox("Immobilientyp*", ["Haus", "Wohnung"]),
             "location": st.text_input("Ort*", "Berlin"),
@@ -53,12 +48,22 @@ def set_sidebar():
             "lot_size": key_facts["Grundstücksfläche"],
             "house_type": st.selectbox("Haustyp", ["Einfamilienhaus", "Doppelhaus", "Reihenhaus"]),
             "features": ", ".join(st.multiselect("Ausstattung/Merkmale", AUSSTATTUNG_OPTIONS)),
-            "contact": f"{contact_fields['name']}\nTelefon: {contact_fields['phone']}\nE-Mail: {contact_fields['email']}\nWeb: {contact_fields['website']}",
-            "specific_title": st.text_input("Objekttitel (z.B. 'Einziehen und wohlfühlen - ...')", "Einziehen und wohlfühlen - Ihr neues Zuhause in Berlin!"),
             "key_facts": key_facts,
-            "call_to_action": st.text_input("Call-to-Action", "Jetzt Besichtigung vereinbaren – kostenfrei und unverbindlich"),
-            "contact_fields": contact_fields
+            "specific_title": st.text_input("Objekttitel (z.B. 'Einziehen und wohlfühlen - ...')", "Einziehen und wohlfühlen - Ihr neues Zuhause in Berlin!"),
+            "call_to_action": st.text_input("Call-to-Action", "Jetzt Besichtigung vereinbaren – kostenfrei und unverbindlich")
         }
+        # Contact fields at the bottom
+        st.markdown("---")
+        st.header("Makler-Kontakt")
+        contact_fields = {
+            "name": st.text_input("Ansprechpartner/in", "Max Mustermann"),
+            "phone": st.text_input("Telefon", "01234/567890"),
+            "email": st.text_input("E-Mail", "info@immobilien.de"),
+            "website": st.text_input("Webseite", "www.immobilien.de")
+        }
+        property_inputs["contact"] = f"{contact_fields['name']}\nTelefon: {contact_fields['phone']}\nE-Mail: {contact_fields['email']}\nWeb: {contact_fields['website']}"
+        property_inputs["contact_fields"] = contact_fields
+        return property_inputs
 
 
 def initialize_state():
@@ -102,25 +107,37 @@ def main():
     if st.session_state["generated_text"]:
         try:
             st.subheader("📄 Vorschau")
-            st.info("Hinweis: Beim Klick auf 'Word-Datei herunterladen' öffnet Ihr Browser einen Speichern-Dialog. Sie können den Speicherort frei wählen.")
             logo = st.session_state["docx_config"]["logo_path"]
             if os.path.isfile(logo):
                 st.columns([4, 1])[1].image(logo, width=120)
             cleaned_parts = clean_markdown(st.session_state["generated_text"])
             table_rows = []
             last_elem_type = None
+            last_content = None
             for elem_type, content in cleaned_parts:
-                if elem_type == "heading1":
-                    st.markdown(f"<h2 style='text-align: center'>{content[0][1]}</h2>", unsafe_allow_html=True)
-                elif elem_type == "heading2":
-                    st.subheader(content)
-                elif elem_type == "heading3":
-                    st.markdown(f"**{content}**")
+                # Only show section titles if they have content after them
+                if elem_type in ("heading2", "heading3"):
+                    # Peek ahead for next non-heading content
+                    idx = cleaned_parts.index((elem_type, content))
+                    has_content = False
+                    for next_elem, next_content in cleaned_parts[idx+1:]:
+                        if next_elem not in ("heading2", "heading3") and (next_elem != "table_row" or next_content):
+                            has_content = True
+                            break
+                    if has_content:
+                        if elem_type == "heading2":
+                            st.subheader(content)
+                        else:
+                            st.markdown(f"**{content}**")
+                    last_elem_type = elem_type
+                    last_content = content
+                    continue
                 elif elem_type == "table_row":
                     table_rows.append(content)
                 elif table_rows:
-                    if last_elem_type not in ("heading2", "heading3"):
-                        st.markdown("### Merkmale und Details")
+                    # Only show Key Facts section title if table_rows has content
+                    if last_elem_type not in ("heading2", "heading3") and table_rows:
+                        st.markdown("### Key Facts")
                     for row in table_rows[1:]:
                         if len(row) == 2:
                             st.markdown(f"- {row[0]}: {row[1]}")
@@ -141,6 +158,7 @@ def main():
                             line += val
                     st.markdown(line)
                 last_elem_type = elem_type
+                last_content = content
             if table_rows:
                 for row in table_rows[1:]:
                     if len(row) == 2:
@@ -167,16 +185,36 @@ def main():
                             caption_filename = os.path.splitext(filename)[0].replace("-", " ").replace("_", " ").title()
                             cols[j].image(path, caption=caption_filename)
             if st.button("📥 Word-Datei erstellen"):
+                # Build full property facts for docx
+                facts_vertical = [
+                    ("Objekt-Nr", user_input["key_facts"]["Objekt-Nr"]),
+                    ("Aktion", user_input["action"]),
+                    ("Immobilientyp", user_input["immotype"]),
+                    ("Ort", user_input["location"]),
+                    ("Adresse", user_input["address"]),
+                    ("Baujahr", user_input["year_built"]),
+                    ("Wohnfläche", user_input["living_area"]),
+                    ("Preis", user_input["price"]),
+                    ("Heizungsart", user_input["heating"]),
+                    ("Internetgeschwindigkeit", user_input["internet_speed"]),
+                    ("Energieeffizienzklasse", user_input["energy_efficiency_class"]),
+                    ("Energieverbrauch", user_input["energy_consumption"]),
+                    ("Zimmer", user_input["rooms"]),
+                    ("Grundstücksgröße", user_input["lot_size"]),
+                    ("Haustyp", user_input["house_type"]),
+                    ("Ausstattung/Merkmale", user_input["features"]),
+                    ("Maklerprovision", user_input["key_facts"]["Maklerprovision"]),
+                    ("Bezugstermin", user_input["key_facts"]["Bezugstermin"]),
+                ]
+                st.session_state["docx_config"]["facts_vertical"] = facts_vertical
                 docx_path = save_to_docx_with_images(
                     text=st.session_state["generated_text"],
                     **st.session_state["docx_config"]
-#                    output_dir=st.session_state["docx_config"]["output_dir"]
                 )
                 st.session_state["docx_path"] = docx_path
                 with open(docx_path, "rb") as f:
                     st.download_button("⬇️ Word-Datei herunterladen", f, os.path.basename(docx_path),
                                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-                                    
         except Exception as e:
             st.error(f"Fehler bei der Vorschau: {e}")
 

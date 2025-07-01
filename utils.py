@@ -363,11 +363,19 @@ def add_key_facts_table(doc, facts):
     table.style = "Table Grid"
     return table
 
+def add_vertical_facts_table(doc, facts_vertical):
+    table = doc.add_table(rows=len(facts_vertical), cols=2)
+    table.style = "Table Grid"
+    for i, (k, v) in enumerate(facts_vertical):
+        table.cell(i, 0).text = str(k)
+        table.cell(i, 1).text = str(v)
+    return table
+
 def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
                              detail_image_folder=None, output_dir="output",
                              title_prefix="anzeige", contact_info=None,
                              key_facts=None, specific_title=None, address=None,
-                             call_to_action=None, contact_fields=None):
+                             call_to_action=None, contact_fields=None, facts_vertical=None):
     os.makedirs(output_dir, exist_ok=True)
     filename = f"{title_prefix}-{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
     filepath = os.path.join(output_dir, filename)
@@ -463,7 +471,9 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
     # --- Always add a dedicated 'Daten und Fakten' page with all key facts ---
     doc.add_page_break()
     doc.add_heading("Daten und Fakten", level=2)
-    if key_facts:
+    if facts_vertical:
+        add_vertical_facts_table(doc, facts_vertical)
+    elif key_facts:
         add_key_facts_table(doc, key_facts)
     # --- Also add any additional facts from LLM output ---
     if not facts_found and not added_facts:
