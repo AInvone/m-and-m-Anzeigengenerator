@@ -114,11 +114,17 @@ def main():
             table_rows = []
             last_elem_type = None
             last_content = None
-            for elem_type, content in cleaned_parts:
+            key_facts_shown = False
+            for idx, (elem_type, content) in enumerate(cleaned_parts):
                 # Only show section titles if they have content after them
                 if elem_type in ("heading2", "heading3"):
+                    # Remove 'Key Facts' duplicate and 'Platzhalter für Bilder' headings
+                    if content.strip().lower() in ("key facts", "bildergalerie", "(platzhalter für bilder)"):
+                        continue
+                    # Remove Energieinformationen subsection heading
+                    if content.strip().lower() == "energieinformationen":
+                        continue
                     # Peek ahead for next non-heading content
-                    idx = cleaned_parts.index((elem_type, content))
                     has_content = False
                     for next_elem, next_content in cleaned_parts[idx+1:]:
                         if next_elem not in ("heading2", "heading3") and (next_elem != "table_row" or next_content):
@@ -133,11 +139,12 @@ def main():
                     last_content = content
                     continue
                 elif elem_type == "table_row":
+                    # Only show Key Facts section title once
+                    if not key_facts_shown:
+                        st.markdown("### Key Facts")
+                        key_facts_shown = True
                     table_rows.append(content)
                 elif table_rows:
-                    # Only show Key Facts section title if table_rows has content
-                    if last_elem_type not in ("heading2", "heading3") and table_rows:
-                        st.markdown("### Key Facts")
                     for row in table_rows[1:]:
                         if len(row) == 2:
                             st.markdown(f"- {row[0]}: {row[1]}")
@@ -150,13 +157,17 @@ def main():
                             bullet = f"- **{val}**" if t == "bold" else f"- {val}"
                             st.markdown(bullet)
                 elif elem_type in ("bold_text", "paragraph"):
+                    # Remove any placeholder for images
                     line = ""
                     for t, val in content:
+                        if "platzhalter für bilder" in val.lower():
+                            continue
                         if t == "bold":
                             line += f"**{val}**"
                         else:
                             line += val
-                    st.markdown(line)
+                    if line.strip():
+                        st.markdown(line)
                 last_elem_type = elem_type
                 last_content = content
             if table_rows:

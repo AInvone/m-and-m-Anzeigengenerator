@@ -367,8 +367,18 @@ def add_vertical_facts_table(doc, facts_vertical):
     table = doc.add_table(rows=len(facts_vertical), cols=2)
     table.style = "Table Grid"
     for i, (k, v) in enumerate(facts_vertical):
-        table.cell(i, 0).text = str(k)
-        table.cell(i, 1).text = str(v)
+        cell0 = table.cell(i, 0)
+        cell1 = table.cell(i, 1)
+        cell0.text = str(k)
+        cell1.text = str(v)
+        # Set row height (1.5x default)
+        tr = cell0._tc.getparent()
+        trPr = tr.get_or_add_trPr()
+        from docx.oxml.shared import OxmlElement
+        ht = OxmlElement('w:trHeight')
+        ht.set('w:val', str(400))  # 1.5x default (default is ~240)
+        ht.set('w:hRule', 'atLeast')
+        trPr.append(ht)
     return table
 
 def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
@@ -401,7 +411,9 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
         add_image_gallery_from_folder(doc, detail_image_folder)
         doc.add_page_break()
     cleaned = clean_markdown(text)
-    # --- DESCRIPTION (robust section detection) ---
+    # Add 'Objektbeschreibung' heading before first text content after images
+    doc.add_page_break()
+    doc.add_heading("Objektbeschreibung", level=2)
     in_desc = False
     in_facts = False
     table_rows = []
@@ -413,19 +425,17 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
         heading = content.lower().strip() if isinstance(content, str) else ''
         # Start description section
         if (elem_type in ("heading2", "heading3") and "objektbeschreibung" in heading):
-            doc.add_heading(clean_heading(content), level=2)
             in_desc = True
             in_facts = False
             desc_found = True
             continue
         # Start facts section
         if (elem_type in ("heading2", "heading3") and "daten und fakten" in heading):
-            doc.add_heading(clean_heading(content), level=2)
             in_desc = False
             in_facts = True
             facts_found = True
             continue
-        if in_desc:
+        if in_desc or (not desc_found and not in_facts):
             added_desc = True
             if elem_type == "paragraph":
                 p = doc.add_paragraph()
@@ -451,7 +461,6 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
                     run.bold = (t == 'bold')
     # Fallback: If no explicit description section, include all content after images up to facts
     if not desc_found and not added_desc:
-        in_desc = True
         for elem_type, content in cleaned:
             heading = content.lower().strip() if isinstance(content, str) else ''
             if (elem_type in ("heading2", "heading3") and "daten und fakten" in heading):
@@ -468,7 +477,7 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
                 for t, val in content[1]:
                     run = p.add_run(val)
                     run.bold = (t == 'bold')
-    # --- Always add a dedicated 'Daten und Fakten' page with all key facts ---
+    # --- Always add a dedicated 'Daten und Fakten' page with all property info ---
     doc.add_page_break()
     doc.add_heading("Daten und Fakten", level=2)
     if facts_vertical:
