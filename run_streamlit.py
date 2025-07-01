@@ -57,8 +57,7 @@ def set_sidebar():
             "specific_title": st.text_input("Objekttitel (z.B. 'Einziehen und wohlfühlen - ...')", "Einziehen und wohlfühlen - Ihr neues Zuhause in Berlin!"),
             "key_facts": key_facts,
             "call_to_action": st.text_input("Call-to-Action", "Jetzt Besichtigung vereinbaren – kostenfrei und unverbindlich"),
-            "contact_fields": contact_fields,
-            "floorplan_path": st.text_input("Pfad zum Grundriss (optional)", "")
+            "contact_fields": contact_fields
         }
 
 
@@ -92,7 +91,6 @@ def main():
                 "address": user_input["address"],
                 "call_to_action": user_input["call_to_action"],
                 "contact_fields": user_input["contact_fields"],
-                "floorplan_path": user_input["floorplan_path"]
             }
             rescaled_main = rescale_img(st.session_state["docx_config"]["main_image_path"], output_folder="data/rescaled_main")
             st.session_state["docx_config"]["main_image_path"] = rescaled_main

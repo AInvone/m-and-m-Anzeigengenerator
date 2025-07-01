@@ -329,7 +329,10 @@ def add_image_gallery_from_folder(doc, folder, title="Innenansichten", per_row=2
 
 # ---------- Save Word File ----------
 
-AGB_TEXT = '''Allgemeine Geschäftsbedingungen\n\n1. ... (Hier steht Ihr AGB-Text, bitte ersetzen Sie diesen Platzhalter durch Ihren echten Text) ...\n\n2. ...\n\n3. ...\n\n(Seitenumbruch nach ca. 1,5 Seiten)\n'''
+def load_agb_text():
+    agb_path = os.path.join(os.path.dirname(__file__), "agb.txt")
+    with open(agb_path, "r", encoding="utf-8") as f:
+        return f.read()
 
 def add_call_to_action(doc, text):
     table = doc.add_table(rows=1, cols=1)
@@ -370,7 +373,7 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
                              detail_image_folder=None, output_dir="output",
                              title_prefix="anzeige", contact_info=None,
                              key_facts=None, specific_title=None, address=None,
-                             call_to_action=None, contact_fields=None, floorplan_path=None):
+                             call_to_action=None, contact_fields=None):
     os.makedirs(output_dir, exist_ok=True)
     filename = f"{title_prefix}-{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
     filepath = os.path.join(output_dir, filename)
@@ -452,8 +455,20 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
         add_clean_table_to_docx(doc, table_rows)
     doc.add_page_break()
     # --- AGB ---
-    doc.add_heading("Allgemeine Geschäftsbedingungen", level=2)
-    for para in AGB_TEXT.split("\n\n"):
-        doc.add_paragraph(para)
+    agb_text = load_agb_text()
+    lines = [line.strip() for line in agb_text.split("\n") if line.strip()]
+    if lines:
+        doc.add_page_break()
+        # First line is usually the main heading
+        doc.add_heading(lines[0], level=2)
+        para = None
+        for line in lines[1:]:
+            if re.match(r"^\d+\. ", line):
+                doc.add_heading(line, level=3)
+                para = None
+            else:
+                if para is None or para.text:
+                    para = doc.add_paragraph()
+                para.add_run(line)
     doc.save(filepath)
     return filepath
