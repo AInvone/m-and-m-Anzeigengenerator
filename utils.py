@@ -104,7 +104,8 @@ def clean_markdown(text):
     first_line = True
     for line in text.split("\n"):
         line = line.strip()
-        if not line:
+        # Remove code block markers and LLM placeholders
+        if not line or line.startswith("```") or "[Platzhalter für Bilder]" in line or "Fügen Sie hier hochwertige Fotos" in line or line == "---":
             continue
         # HEADING 1: erste fette Zeile als Haupttitel
         if first_line and line.startswith("**") and line.endswith("**"):
@@ -398,6 +399,8 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
     table_rows = []
     desc_found = False
     facts_found = False
+    added_desc = False
+    added_facts = False
     for elem_type, content in cleaned:
         heading = content.lower().strip() if isinstance(content, str) else ''
         # Start description section
@@ -415,6 +418,7 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
             facts_found = True
             continue
         if in_desc:
+            added_desc = True
             if elem_type == "paragraph":
                 p = doc.add_paragraph()
                 for t, val in content:
@@ -426,6 +430,7 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
                     run = p.add_run(val)
                     run.bold = (t == 'bold')
         elif in_facts:
+            added_facts = True
             if elem_type == "table_row":
                 table_rows.append(content)
             elif table_rows:
@@ -437,7 +442,7 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
                     run = p.add_run(val)
                     run.bold = (t == 'bold')
     # Fallback: If no explicit description section, include all content after images up to facts
-    if not desc_found:
+    if not desc_found and not added_desc:
         in_desc = True
         for elem_type, content in cleaned:
             heading = content.lower().strip() if isinstance(content, str) else ''
@@ -455,9 +460,13 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
                 for t, val in content[1]:
                     run = p.add_run(val)
                     run.bold = (t == 'bold')
+    # --- Always add a dedicated 'Daten und Fakten' page with all key facts ---
     doc.add_page_break()
-    # Fallback: If no explicit facts section, include all tables after description
-    if not facts_found:
+    doc.add_heading("Daten und Fakten", level=2)
+    if key_facts:
+        add_key_facts_table(doc, key_facts)
+    # --- Also add any additional facts from LLM output ---
+    if not facts_found and not added_facts:
         table_rows = []
         in_tables = False
         for elem_type, content in cleaned:
@@ -478,11 +487,11 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
                         run.bold = (t == 'bold')
         if table_rows:
             add_clean_table_to_docx(doc, table_rows)
+    # --- AGB ---
     doc.add_page_break()
     agb_text = load_agb_text()
     lines = [line.strip() for line in agb_text.split("\n") if line.strip()]
     if lines:
-        doc.add_page_break()
         doc.add_heading(clean_heading(lines[0]), level=2)
         para = None
         for line in lines[1:]:
