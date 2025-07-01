@@ -114,6 +114,7 @@ def main():
             cleaned_parts = clean_markdown(st.session_state["generated_text"])
 
             table_rows = []
+            last_elem_type = None
 
             for elem_type, content in cleaned_parts:
                 if elem_type == "heading1":
@@ -123,13 +124,19 @@ def main():
                     table_rows.append(content)
 
                 elif table_rows:
+                    # Only add header if last_elem_type is not heading2 or heading3 
                     # Wenn nach Tabelle ein anderer Abschnitt kommt → Tabelle zuerst rendern
-                    st.markdown("### Markmale und Details")
+                    if last_elem_type not in ("heading2", "heading3"):
+                        st.markdown("### Merkmale und Details")
                     table_md = "| " + " | ".join(table_rows[0]) + " |\n"
                     table_md += "| " + " | ".join(["---"] * len(table_rows[0])) + " |\n"
                     for row in table_rows[1:]:
-                        table_md += "| " + " | ".join(row) + " |\n"
-                    st.markdown(table_md, unsafe_allow_html=True)
+                        if len(row) == 2:
+                            st.markdown(f"- {row[0]}: {row[1]}")
+                        else:
+                            st.markdown(f"- {' - '.join(row)}")
+                    #     table_md += "| " + " | ".join(row) + " |\n"
+                    # st.markdown(table_md, unsafe_allow_html=True)
                     table_rows = []  # zurücksetzen für nächste Tabelle
 
                 if elem_type == "heading2":
@@ -152,6 +159,8 @@ def main():
                         else:
                             line += val
                     st.markdown(line)
+
+                last_elem_type = elem_type
 
             # Falls Tabelle am Ende steht und noch nicht gerendert wurde
             if table_rows:
