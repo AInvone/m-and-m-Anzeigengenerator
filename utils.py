@@ -392,16 +392,30 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
         add_image_gallery_from_folder(doc, detail_image_folder)
         doc.add_page_break()
     cleaned = clean_markdown(text)
+    # --- DESCRIPTION (robust section detection) ---
     in_desc = False
+    in_facts = False
+    table_rows = []
+    desc_found = False
+    facts_found = False
     for elem_type, content in cleaned:
-        if elem_type == "heading2" and "objektbeschreibung" in content.lower():
+        heading = content.lower().strip() if isinstance(content, str) else ''
+        # Start description section
+        if (elem_type in ("heading2", "heading3") and "objektbeschreibung" in heading):
             doc.add_heading(clean_heading(content), level=2)
             in_desc = True
+            in_facts = False
+            desc_found = True
+            continue
+        # Start facts section
+        if (elem_type in ("heading2", "heading3") and "daten und fakten" in heading):
+            doc.add_heading(clean_heading(content), level=2)
+            in_desc = False
+            in_facts = True
+            facts_found = True
             continue
         if in_desc:
-            if elem_type == "heading2" and "daten und fakten" in content.lower():
-                break
-            elif elem_type == "paragraph":
+            if elem_type == "paragraph":
                 p = doc.add_paragraph()
                 for t, val in content:
                     run = p.add_run(val)
@@ -411,15 +425,7 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
                 for t, val in content[1]:
                     run = p.add_run(val)
                     run.bold = (t == 'bold')
-    doc.add_page_break()
-    in_facts = False
-    table_rows = []
-    for elem_type, content in cleaned:
-        if elem_type == "heading2" and "daten und fakten" in content.lower():
-            doc.add_heading(clean_heading(content), level=2)
-            in_facts = True
-            continue
-        if in_facts:
+        elif in_facts:
             if elem_type == "table_row":
                 table_rows.append(content)
             elif table_rows:
@@ -430,8 +436,48 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
                 for t, val in content:
                     run = p.add_run(val)
                     run.bold = (t == 'bold')
-    if table_rows:
-        add_clean_table_to_docx(doc, table_rows)
+    # Fallback: If no explicit description section, include all content after images up to facts
+    if not desc_found:
+        in_desc = True
+        for elem_type, content in cleaned:
+            heading = content.lower().strip() if isinstance(content, str) else ''
+            if (elem_type in ("heading2", "heading3") and "daten und fakten" in heading):
+                break
+            if elem_type in ("heading2", "heading3") and "objektbeschreibung" in heading:
+                continue
+            if elem_type == "paragraph":
+                p = doc.add_paragraph()
+                for t, val in content:
+                    run = p.add_run(val)
+                    run.bold = (t == 'bold')
+            elif elem_type == "bullet":
+                p = doc.add_paragraph(style='List Bullet')
+                for t, val in content[1]:
+                    run = p.add_run(val)
+                    run.bold = (t == 'bold')
+    doc.add_page_break()
+    # Fallback: If no explicit facts section, include all tables after description
+    if not facts_found:
+        table_rows = []
+        in_tables = False
+        for elem_type, content in cleaned:
+            heading = content.lower().strip() if isinstance(content, str) else ''
+            if (elem_type in ("heading2", "heading3") and ("objektbeschreibung" in heading or "daten und fakten" in heading)):
+                in_tables = True if "daten und fakten" in heading else False
+                continue
+            if in_tables:
+                if elem_type == "table_row":
+                    table_rows.append(content)
+                elif table_rows:
+                    add_clean_table_to_docx(doc, table_rows)
+                    table_rows = []
+                elif elem_type == "paragraph":
+                    p = doc.add_paragraph()
+                    for t, val in content:
+                        run = p.add_run(val)
+                        run.bold = (t == 'bold')
+        if table_rows:
+            add_clean_table_to_docx(doc, table_rows)
     doc.add_page_break()
     agb_text = load_agb_text()
     lines = [line.strip() for line in agb_text.split("\n") if line.strip()]
