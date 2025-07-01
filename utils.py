@@ -23,6 +23,7 @@ def generate_real_estate_ad_deeps(args, prompt):
     )
     return response.choices[0].message.content
 
+
 def create_prompt(params):
     return f"""Erstelle eine professionelle Immobilienanzeige für Immoscout24 auf Deutsch mit diesen Angaben:
 Aktion: {params['action']}
@@ -131,7 +132,7 @@ def clean_markdown(text):
 
         # Bullet (aber keine kaputten wie • --)
         bullet_match = re.match(r'^\s*[-•✔🔹]\s+(.+)', line)
-        if bullet_match and bullet_match.group(1).strip() != "--":
+        if bullet_match and bullet_match.group(1).strip():
             lines.append(("bullet", (1, _process_markdown_line(bullet_match.group(1)))))
             continue
 
@@ -150,13 +151,13 @@ def set_table_border(tbl, border_dir, val="single", size="4", color="888888"):
     Setzt Tabellenrahmen in einem docx-Tabellelement.
     """
     tbl_pr = tbl.tblPr
-#    tbl_borders = tbl_pr.tblBorders or OxmlElement("w:tblBorders")
 
     # Try to find existing tblBorders element 
     tbl_borders = tbl_pr.find(qn("w:tblBorders"))
     if tbl_borders is None:
         tbl_borders = OxmlElement("w:tblBorders")
         tbl_pr.append(tbl_borders)
+
 
     # Create and configure the border element 
     border = OxmlElement(f"w:{border_dir}")
@@ -194,19 +195,19 @@ def add_clean_table_to_docx(doc, rows, bold_header=True):
     table = doc.add_table(rows=0, cols=len(filtered_rows[0]))
     table.style = "Table Grid"
 
-    # Setze graue Rahmen für bessere Lesbarkeit
-    def set_table_border(tbl, border_dir, val="single", size="6", color="888888"):
-        tbl_pr = tbl.tblPr
-        tbl_borders = tbl_pr.tblBorders or OxmlElement("w:tblBorders")
+    # # Setze graue Rahmen für bessere Lesbarkeit
+    # def set_table_border(tbl, border_dir, val="single", size="6", color="888888"):
+    #     tbl_pr = tbl.tblPr
+    #     tbl_borders = tbl_pr.tblBorders or OxmlElement("w:tblBorders")
 
-        border = OxmlElement(f"w:{border_dir}")
-        border.set(qn("w:val"), val)
-        border.set(qn("w:sz"), size)
-        border.set(qn("w:space"), "0")
-        border.set(qn("w:color"), color)
+    #     border = OxmlElement(f"w:{border_dir}")
+    #     border.set(qn("w:val"), val)
+    #     border.set(qn("w:sz"), size)
+    #     border.set(qn("w:space"), "0")
+    #     border.set(qn("w:color"), color)
 
-        tbl_borders.append(border)
-        tbl_pr.append(tbl_borders)
+    #     tbl_borders.append(border)
+    #     tbl_pr.append(tbl_borders)
 
     for direction in ["top", "left", "bottom", "right", "insideH", "insideV"]:
         set_table_border(table._tbl, direction)
@@ -225,105 +226,6 @@ def add_clean_table_to_docx(doc, rows, bold_header=True):
             para.paragraph_format.space_after = Inches(0.05)
 
     return table
-
-
-def add_clean_table_to_docx_old_new2(doc, rows, bold_header=True):
-    """
-    Fügt eine modern formatierte Tabelle mit grauen Rändern und sauberem Styling ein.
-    """
-    if not rows or not all(isinstance(r, list) for r in rows):
-        return
-
-    # Entferne Zeilen wie ['------', '------']
-    filtered_rows = [
-        r for r in rows
-        if not all(set(cell.strip()) <= {"-"} for cell in r)
-    ]
-    if not filtered_rows:
-        return
-
-    # Tabelle erstellen
-    table = doc.add_table(rows=0, cols=len(filtered_rows[0]))
-    table.style = "Table Grid"
-
-    # Ränder auf Grau setzen
-    tbl = table._tbl
-    for direction in ["top", "left", "bottom", "right", "insideH", "insideV"]:
-        set_table_border(tbl, direction, "single", "6", "888888")
-
-    for row_idx, row_cells in enumerate(filtered_rows):
-        row = table.add_row()
-        for col_idx, raw_text in enumerate(row_cells):
-            cell = row.cells[col_idx]
-            para = cell.paragraphs[0]
-
-            # "**Text**" erkennen und formatieren
-            matches = re.findall(r"\*\*(.*?)\*\*", raw_text)
-            if matches:
-                for part in re.split(r"(\*\*.*?\*\*)", raw_text):
-                    if part.startswith("**") and part.endswith("**"):
-                        para.add_run(part.strip("**")).bold = True
-                    else:
-                        para.add_run(part)
-            else:
-                run = para.add_run(raw_text.strip())
-                if bold_header and row_idx == 0:
-                    run.bold = True
-
-            para.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
-            para.paragraph_format.space_after = Inches(0.05)  # mehr Abstand für Lesbarkeit
-
-    return table
-
-
-def add_clean_table_to_docx_old_new(doc, rows, bold_header=True):
-    """
-    Fügt eine modern formatierte Tabelle mit grauen Rändern und sauberem Styling ein.
-    """
-    if not rows or not all(isinstance(r, list) for r in rows):
-        return
-
-    # Entferne Zeilen wie ['------', '------']
-    filtered_rows = [
-        r for r in rows
-        if not all(set(cell.strip()) <= {"-"} for cell in r)
-    ]
-    if not filtered_rows:
-        return
-
-    # Tabelle erstellen
-    table = doc.add_table(rows=0, cols=len(filtered_rows[0]))
-    table.style = "Table Grid"
-
-    # Ränder auf Grau setzen
-    tbl = table._tbl
-    for direction in ["top", "left", "bottom", "right", "insideH", "insideV"]:
-        set_table_border(tbl, direction, "single", "6", "888888")
-
-    for row_idx, row_cells in enumerate(filtered_rows):
-        row = table.add_row()
-        for col_idx, raw_text in enumerate(row_cells):
-            cell = row.cells[col_idx]
-            para = cell.paragraphs[0]
-
-            # "**Text**" erkennen und formatieren
-            matches = re.findall(r"\*\*(.*?)\*\*", raw_text)
-            if matches:
-                for part in re.split(r"(\*\*.*?\*\*)", raw_text):
-                    if part.startswith("**") and part.endswith("**"):
-                        para.add_run(part.strip("**")).bold = True
-                    else:
-                        para.add_run(part)
-            else:
-                run = para.add_run(raw_text.strip())
-                if bold_header and row_idx == 0:
-                    run.bold = True
-
-            para.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
-            para.paragraph_format.space_after = Inches(0.05)
-
-    return table
-
 
 
 # ---------- Image Helper ----------

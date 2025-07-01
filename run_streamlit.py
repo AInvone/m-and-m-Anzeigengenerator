@@ -140,8 +140,9 @@ def main():
 
                 elif elem_type == "bullet":
                     for t, val in content[1]:
-                        bullet = f"- **{val}**" if t == "bold" else f"- {val}"
-                        st.markdown(bullet)
+                        if val.strip():
+                            bullet = f"- **{val}**" if t == "bold" else f"- {val}"
+                            st.markdown(bullet)
 
                 elif elem_type in ("bold_text", "paragraph"):
                     line = ""
