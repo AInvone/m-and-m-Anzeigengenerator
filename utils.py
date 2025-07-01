@@ -407,9 +407,6 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
     if detail_image_folder:
         add_image_gallery_from_folder(doc, detail_image_folder)
         doc.add_page_break()
-    if floorplan_path and os.path.isfile(floorplan_path):
-        add_main_image(doc, floorplan_path, "Grundriss")
-        doc.add_page_break()
     # --- DESCRIPTION ---
     cleaned = clean_markdown(text)
     in_desc = False
