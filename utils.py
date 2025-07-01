@@ -25,10 +25,30 @@ def generate_real_estate_ad_deeps(args, prompt):
 
 
 def create_prompt(params):
-    return f"""Erstelle eine professionelle Immobilienanzeige für Immoscout24 auf Deutsch mit diesen Angaben:
+    return f"""
+Erstelle ein professionelles Immobilien-Exposé für Immoscout24 auf Deutsch mit folgender Struktur und Formatierung:
+
+1. **Titel**: Eine aufmerksamkeitsstarke Überschrift.
+2. **Untertitel**: Ein kurzer, inspirierender Untertitel.
+3. **Objektübersicht**: Kurzbeschreibung der Immobilie (2-3 Sätze).
+4. **Key Facts**: Tabelle mit den wichtigsten Eckdaten (Kaufpreis, Wohnfläche, Grundstück, Zimmer, Baujahr, Haustyp, Energieklasse, etc.).
+5. **Ausführliche Beschreibung**: Mindestens 4 Abschnitte, jeweils mit Überschrift und ausführlichem Fließtext. Gehe auf Lage, Ausstattung, Besonderheiten, Zielgruppe, Vorteile und Umgebung ein.
+6. **Ausstattung & Merkmale**: Bullet-Liste der wichtigsten Ausstattungsmerkmale.
+7. **Lagebeschreibung**: Ausführlicher Abschnitt zur Lage.
+8. **Energieinformationen**: Tabelle mit Energieausweis-Daten (Energieklasse, Verbrauch, Baujahr, Heizungsart, etc.).
+9. **Kontakt**: Platzhalter für Kontaktdaten.
+10. **Bildergalerie**: Platzhalter für Bilder.
+
+Format:
+- Nutze Markdown für Überschriften (##, ###), Tabellen und Listen.
+- Jede Sektion klar abtrennen.
+- Keine Kommentare oder Anmerkungen außerhalb des Exposé-Textes.
+
+Daten:
 Aktion: {params['action']}
 Immobilientyp: {params['immotype']}
 Ort: {params['location']}
+Adresse: {params.get('address', '')}
 Preis: {params['price']}
 Wohnfläche: {params['living_area']}
 Grundstücksgröße: {params['lot_size']}
@@ -39,17 +59,9 @@ Heizungsart: {params['heating']}
 Internetgeschwindigkeit: {params['internet_speed']}
 Energieeffizienzklasse: {params['energy_efficiency_class']}
 Ausstattung/Merkmale: {params['features']}
+Energieverbrauch: {params.get('energy_consumption', '')}
+Kontakt: {params.get('contact', '')}
 
-Bitte verwende eine übersichtliche Struktur: 
-- Eine ansprechende und aufmerksamkeitsstarke Überschrift
-- Einen Abschnitt "Key Facts" mit den wichtigsten Eckdaten
-- Eine Merkmals-Tabelle (in Markdown-Tabelle mit zwei Spalten: Merkmal | Wert)
-- Einen langen, ausführlichen, umfangreichen und ansprechenden Haupttext in Fließtext mit mindestens 4 Abschnitten mit Hervorhebung aller Vorteile (USPs)
-- Die Fließtext-Absätze sollen länger und ausgeschweifter sein, bitte rethorisch ausgeschmückt, oder auch mit einem oder zwei inhaltlichen "Hooks", bevor es zu "Ihre Vorteile auf einen Blick:" kommt
-- Zielgruppe: Käufer auf dem deutschen Immobilienmarkt, die gerne längere Texte lesen
-- Stil: inspirierend, klar, realistisch, ansprechend, geduldig viel erzählend.
-
-Gib nur den Anzeigentext zurück und kommentiere nicht die obigen Anweisungen.
 """
 
 def trim_trailing_notes(text: str) -> str:
@@ -99,15 +111,6 @@ def clean_markdown(text):
             first_line = False
             continue
         first_line = False
-
-        # # Markdown-Tabelle
-        # if "|" in line and re.match(r"^\|.*\|$", line):
-        #     # Zeile ignorieren, falls sie nur "--"-Zeilen enthaelt 
-        #     raw_cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        #     if all(set(c) <= {"-"} for c in raw_cells):
-        #         continue  # Trennerzeile überspringen
-        #     lines.append(("table_row", raw_cells))
-        #     continue
 
         # Markdown-Tabelle
         if "|" in line and re.match(r"^\|.*\|$", line):
@@ -194,20 +197,6 @@ def add_clean_table_to_docx(doc, rows, bold_header=True):
 
     table = doc.add_table(rows=0, cols=len(filtered_rows[0]))
     table.style = "Table Grid"
-
-    # # Setze graue Rahmen für bessere Lesbarkeit
-    # def set_table_border(tbl, border_dir, val="single", size="6", color="888888"):
-    #     tbl_pr = tbl.tblPr
-    #     tbl_borders = tbl_pr.tblBorders or OxmlElement("w:tblBorders")
-
-    #     border = OxmlElement(f"w:{border_dir}")
-    #     border.set(qn("w:val"), val)
-    #     border.set(qn("w:sz"), size)
-    #     border.set(qn("w:space"), "0")
-    #     border.set(qn("w:color"), color)
-
-    #     tbl_borders.append(border)
-    #     tbl_pr.append(tbl_borders)
 
     for direction in ["top", "left", "bottom", "right", "insideH", "insideV"]:
         set_table_border(table._tbl, direction)
@@ -342,8 +331,8 @@ def add_image_gallery_from_folder(doc, folder, title="Innenansichten", per_row=2
 
 def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
                              detail_image_folder=None, output_dir="output",
-                             title_prefix="anzeige"):
-
+                             title_prefix="anzeige", contact_info=None):
+    from docx.shared import Pt
     os.makedirs(output_dir, exist_ok=True)
     filename = f"{title_prefix}-{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
     filepath = os.path.join(output_dir, filename)
@@ -351,61 +340,50 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
     doc = Document()
     cleaned = clean_markdown(text)
 
+    # Logo
     add_logo_top_right(doc, logo_path)
     doc.add_paragraph()
 
-    start_index = 0
-    title_text = None
-
-    if cleaned and cleaned[0][0] == 'heading1':
-        title_text = ''.join([t[1] for t in cleaned[0][1]])
-        start_index = 1
-
-    # Fallback Titel
-    if not title_text:
-        title_text = "Immobilien-Exposé"
-        start_index = 1
-
-    h = doc.add_heading("Immobilien-Exposé", level=1)
-    h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-
-    add_main_image(doc, main_image_path, "Außenansicht der Immobilie")
-
-    # table = None
-    bullet_stack = [0]
+    # Parse sections
+    section = None
     table_rows = []
-
-    for elem_type, content in cleaned[start_index:]:
-        if elem_type == "table_row":
-            table_rows.append(content)
-            continue
-        elif table_rows:
-            # when we are done with the table, render the table
-             add_clean_table_to_docx(doc, table_rows)
-             table_rows = []
-
-        if elem_type == "heading2":
+    for elem_type, content in cleaned:
+        if elem_type == "heading1":
+            h = doc.add_heading(content[0][1], level=1)
+            h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+        elif elem_type == "heading2":
             doc.add_heading(content, level=2)
-            bullet_stack = [0]
-
+        elif elem_type == "heading3":
+            doc.add_heading(content, level=3)
+        elif elem_type == "table_row":
+            table_rows.append(content)
+        elif table_rows:
+            add_clean_table_to_docx(doc, table_rows)
+            table_rows = []
         elif elem_type == "bullet":
             p = doc.add_paragraph(style='List Bullet')
             for t, val in content[1]:
                 run = p.add_run(val)
                 run.bold = (t == 'bold')
-
         elif elem_type in ("bold_text", "paragraph"):
             p = doc.add_paragraph()
             for t, val in content:
                 run = p.add_run(val)
                 run.bold = (t == 'bold')
-
-    # Tabelle am Ende noch rendern, falls sie zuletzt kommt
     if table_rows:
         add_clean_table_to_docx(doc, table_rows)
 
+    # Main image
+    add_main_image(doc, main_image_path, "Außenansicht der Immobilie")
+
+    # Gallery
     if detail_image_folder:
         add_image_gallery_from_folder(doc, detail_image_folder)
+
+    # Contact
+    if contact_info:
+        doc.add_heading("Kontakt", level=2)
+        doc.add_paragraph(contact_info)
 
     doc.save(filepath)
     return filepath
