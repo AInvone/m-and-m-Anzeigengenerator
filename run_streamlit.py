@@ -169,7 +169,8 @@ def main():
             if st.button("📥 Word-Datei erstellen"):
                 docx_path = save_to_docx_with_images(
                     text=st.session_state["generated_text"],
-                    **st.session_state["docx_config"]
+                    **st.session_state["docx_config"],
+                    output_dir=st.session_state["docx_config"]["output_dir"]
                 )
                 st.session_state["docx_path"] = docx_path
                 with open(docx_path, "rb") as f:

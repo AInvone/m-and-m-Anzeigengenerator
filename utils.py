@@ -95,15 +95,17 @@ def _process_markdown_line(line):
         parts.append(('text', ''.join(buffer)))
     return parts
 
+def clean_heading(text):
+    # Remove leading #, whitespace, and possible Markdown heading artifacts
+    return re.sub(r'^#+\s*', '', text).strip()
+
 def clean_markdown(text):
     lines = []
     first_line = True
-
     for line in text.split("\n"):
         line = line.strip()
         if not line:
             continue
-
         # HEADING 1: erste fette Zeile als Haupttitel
         if first_line and line.startswith("**") and line.endswith("**"):
             clean_title = line.strip("*").strip()
@@ -111,41 +113,32 @@ def clean_markdown(text):
             first_line = False
             continue
         first_line = False
-
         # Markdown-Tabelle
         if "|" in line and re.match(r"^\|.*\|$", line):
             raw_cells = [c.strip() for c in line.strip().strip("|").split("|")]
-
-            # Ignoriere Zeile mit nur "---"
             if all(set(c) <= {"-"} for c in raw_cells):
                 continue
-
             lines.append(("table_row", raw_cells))
             continue
-
-
         # Unterüberschriften
         if line.startswith("###"):
-            lines.append(("heading2", line.replace("###", "").strip()))
+            lines.append(("heading2", clean_heading(line.replace("###", ""))))
             continue
         elif line.startswith("**") and line.endswith("**"):
             line_clean = re.sub(r"\*+", "", line).strip()
-            lines.append(("heading3", line_clean))
+            lines.append(("heading3", clean_heading(line_clean)))
             continue
-
         # Bullet (aber keine kaputten wie • --)
         bullet_match = re.match(r'^\s*[-•✔🔹]\s+(.+)', line)
         if bullet_match and bullet_match.group(1).strip():
             lines.append(("bullet", (1, _process_markdown_line(bullet_match.group(1)))))
             continue
-
         # Fließtext
         processed = _process_markdown_line(line)
         if any(t[0] == 'bold' for t in processed):
             lines.append(("bold_text", processed))
         else:
             lines.append(("paragraph", processed))
-
     return lines
 
 
@@ -379,40 +372,30 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
     filepath = os.path.join(output_dir, filename)
     doc = Document()
     # --- PAGE 1 ---
-    # Title
     doc.add_heading("Ihr Immobilienangebot", level=0)
-    # Logo
     add_logo_top_right(doc, logo_path)
-    # Main image (full width)
     add_main_image(doc, main_image_path, "")
-    # Specific title
     if specific_title:
-        h = doc.add_heading(specific_title, level=1)
+        h = doc.add_heading(clean_heading(specific_title), level=1)
         h.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-    # Address
     if address:
         p = doc.add_paragraph(address)
         p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-    # Key facts
     if key_facts:
         add_key_facts_table(doc, key_facts)
-    # Call to action
     if call_to_action:
         add_call_to_action(doc, call_to_action)
-    # Contact box (bottom of page)
     if contact_fields:
         add_contact_box(doc, **contact_fields)
     doc.add_page_break()
-    # --- IMAGE GALLERY ---
     if detail_image_folder:
         add_image_gallery_from_folder(doc, detail_image_folder)
         doc.add_page_break()
-    # --- DESCRIPTION ---
     cleaned = clean_markdown(text)
     in_desc = False
     for elem_type, content in cleaned:
         if elem_type == "heading2" and "objektbeschreibung" in content.lower():
-            doc.add_heading(content, level=2)
+            doc.add_heading(clean_heading(content), level=2)
             in_desc = True
             continue
         if in_desc:
@@ -429,12 +412,11 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
                     run = p.add_run(val)
                     run.bold = (t == 'bold')
     doc.add_page_break()
-    # --- DATEN UND FAKTEN ---
     in_facts = False
     table_rows = []
     for elem_type, content in cleaned:
         if elem_type == "heading2" and "daten und fakten" in content.lower():
-            doc.add_heading(content, level=2)
+            doc.add_heading(clean_heading(content), level=2)
             in_facts = True
             continue
         if in_facts:
@@ -451,17 +433,15 @@ def save_to_docx_with_images(text, logo_path=None, main_image_path=None,
     if table_rows:
         add_clean_table_to_docx(doc, table_rows)
     doc.add_page_break()
-    # --- AGB ---
     agb_text = load_agb_text()
     lines = [line.strip() for line in agb_text.split("\n") if line.strip()]
     if lines:
         doc.add_page_break()
-        # First line is usually the main heading
-        doc.add_heading(lines[0], level=2)
+        doc.add_heading(clean_heading(lines[0]), level=2)
         para = None
         for line in lines[1:]:
             if re.match(r"^\d+\. ", line):
-                doc.add_heading(line, level=3)
+                doc.add_heading(clean_heading(line), level=3)
                 para = None
             else:
                 if para is None or para.text:
