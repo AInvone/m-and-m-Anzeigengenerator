@@ -37,7 +37,7 @@ Erstelle ein professionelles Immobilien-Exposé für Immoscout24 auf Deutsch mit
 7. **Lagebeschreibung**: Ausführlicher Abschnitt zur Lage.
 8. **Energieinformationen**: Tabelle mit Energieausweis-Daten (Energieklasse, Verbrauch, Baujahr, Heizungsart, etc.).
 9. **Kontakt**: Platzhalter für Kontaktdaten.
-10. **Bildergalerie**: Platzhalter für Bilder.
+10. **Bildergalerie**: .
 
 Format:
 - Nutze Markdown für Überschriften (##, ###), Tabellen und Listen.
