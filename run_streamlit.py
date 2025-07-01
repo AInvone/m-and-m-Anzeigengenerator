@@ -176,9 +176,7 @@ def main():
                 with open(docx_path, "rb") as f:
                     st.download_button("⬇️ Word-Datei herunterladen", f, os.path.basename(docx_path),
                                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-                    
-                st.success(f"Word-Datei gespeichert unter:\n`{os.path.abspath(docx_path)}`")
-                
+                                    
         except Exception as e:
             st.error(f"Fehler bei der Vorschau: {e}")
 
