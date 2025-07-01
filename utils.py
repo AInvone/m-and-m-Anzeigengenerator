@@ -150,16 +150,26 @@ def set_table_border(tbl, border_dir, val="single", size="4", color="888888"):
     Setzt Tabellenrahmen in einem docx-Tabellelement.
     """
     tbl_pr = tbl.tblPr
-    tbl_borders = tbl_pr.tblBorders or OxmlElement("w:tblBorders")
+#    tbl_borders = tbl_pr.tblBorders or OxmlElement("w:tblBorders")
 
+    # Try to find existing tblBorders element 
+    tbl_borders = tbl_pr.find(qn("w:tblBorders"))
+    if tbl_borders is None:
+        tbl_borders = OxmlElement("w:tblBorders")
+        tbl_pr.append(tbl_borders)
+
+    # Create and configure the border element 
     border = OxmlElement(f"w:{border_dir}")
     border.set(qn("w:val"), val)
     border.set(qn("w:sz"), size)
     border.set(qn("w:space"), "0")
     border.set(qn("w:color"), color)
 
-    tbl_borders.append(border)
-    tbl_pr.append(tbl_borders)
+    # Add or replace the specific border direction 
+    existing_border = tbl_borders.find(qn(f"w:{border_dir}"))
+    if existing_border is not None:
+        tbl_borders.remove(existing_border)
+    tbl_pr.append(border)
 
 
 def add_clean_table_to_docx(doc, rows, bold_header=True):
