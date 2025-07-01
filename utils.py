@@ -366,6 +366,7 @@ def add_key_facts_table(doc, facts):
 def add_vertical_facts_table(doc, facts_vertical):
     table = doc.add_table(rows=len(facts_vertical), cols=2)
     table.style = "Table Grid"
+    from docx.oxml.ns import qn
     for i, (k, v) in enumerate(facts_vertical):
         cell0 = table.cell(i, 0)
         cell1 = table.cell(i, 1)
@@ -374,10 +375,9 @@ def add_vertical_facts_table(doc, facts_vertical):
         # Set row height (1.5x default)
         tr = cell0._tc.getparent()
         trPr = tr.get_or_add_trPr()
-        from docx.oxml.shared import OxmlElement
         ht = OxmlElement('w:trHeight')
-        ht.set('w:val', str(400))  # 1.5x default (default is ~240)
-        ht.set('w:hRule', 'atLeast')
+        ht.set(qn('w:val'), str(400))  # 1.5x default (default is ~240)
+        ht.set(qn('w:hRule'), 'atLeast')
         trPr.append(ht)
     return table
 

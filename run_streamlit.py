@@ -115,31 +115,44 @@ def main():
             last_elem_type = None
             last_content = None
             key_facts_shown = False
-            for idx, (elem_type, content) in enumerate(cleaned_parts):
+            i = 0
+            while i < len(cleaned_parts):
+                elem_type, content = cleaned_parts[i]
                 # Only show section titles if they have content after them
                 if elem_type in ("heading2", "heading3"):
-                    # Remove 'Key Facts' duplicate and 'Platzhalter für Bilder' headings
+                    # Remove duplicate/empty/irrelevant headers
                     if content.strip().lower() in ("key facts", "bildergalerie", "(platzhalter für bilder)"):
+                        # Only show 'Key Facts' once and only if followed by table
+                        if content.strip().lower() == "key facts":
+                            # Check if next is a table_row with content
+                            j = i + 1
+                            while j < len(cleaned_parts) and cleaned_parts[j][0] in ("heading2", "heading3"):
+                                j += 1
+                            if j < len(cleaned_parts) and cleaned_parts[j][0] == "table_row" and not key_facts_shown:
+                                st.markdown("### Key Facts")
+                                key_facts_shown = True
+                        i += 1
                         continue
-                    # Remove Energieinformationen subsection heading
-                    if content.strip().lower() == "energieinformationen":
-                        continue
-                    # Peek ahead for next non-heading content
+                    # Only show header if next non-header is content
+                    j = i + 1
                     has_content = False
-                    for next_elem, next_content in cleaned_parts[idx+1:]:
-                        if next_elem not in ("heading2", "heading3") and (next_elem != "table_row" or next_content):
+                    while j < len(cleaned_parts):
+                        next_elem, next_content = cleaned_parts[j]
+                        if next_elem not in ("heading2", "heading3") and (
+                            (next_elem == "table_row" and next_content) or (next_elem in ("paragraph", "bullet", "bold_text") and next_content)):
                             has_content = True
                             break
+                        elif next_elem not in ("heading2", "heading3"):
+                            break
+                        j += 1
                     if has_content:
                         if elem_type == "heading2":
                             st.subheader(content)
                         else:
                             st.markdown(f"**{content}**")
-                    last_elem_type = elem_type
-                    last_content = content
+                    i += 1
                     continue
                 elif elem_type == "table_row":
-                    # Only show Key Facts section title once
                     if not key_facts_shown:
                         st.markdown("### Key Facts")
                         key_facts_shown = True
@@ -170,6 +183,7 @@ def main():
                         st.markdown(line)
                 last_elem_type = elem_type
                 last_content = content
+                i += 1
             if table_rows:
                 for row in table_rows[1:]:
                     if len(row) == 2:
